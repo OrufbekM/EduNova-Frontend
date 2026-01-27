@@ -1,0 +1,32 @@
+@font-face {
+  font-family: 'metropolis';
+  src: url('./assets/metropolis.otf') format('truetype');
+}
+@font-face {
+  font-family: 'metropolisBold';
+  src: url('./assets/metropolisBold.otf') format('truetype');
+}
+@font-face {
+  font-family: 'metropolisLight';
+  src: url('./assets/metropolisLight.otf') format('truetype');
+}
+
+:root {
+  --dark1: #111;
+  --dark2: #252525ff;
+  --light1: rgb(23, 155, 144);
+  --light2: rgb(14, 135, 84);
+  --white1: #fff;
+  --red1: #8a0000ff;
+  --neon: #22d3ee;
+  --neon-muted: #0891b2;
+}
+*{
+  margin: 0;padding: 0;box-sizing: border-box;
+}
+
+body {
+  width: 100%;
+  min-width: 320px;
+  min-height: 100vh;
+}
