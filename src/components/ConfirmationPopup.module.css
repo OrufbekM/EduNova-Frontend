@@ -1,0 +1,74 @@
+/* ConfirmationPopup Component Styles */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.popup {
+  background: var(--dark2);
+  border: 2px solid var(--neon);
+  border-radius: 12px;
+  padding: 30px;
+  min-width: 350px;
+  max-width: 500px;
+  box-shadow: 0 0 30px rgba(34, 211, 238, 0.4);
+}
+
+.message {
+  color: var(--white1);
+  font-family: 'metropolis', sans-serif;
+  font-size: 16px;
+  margin-bottom: 24px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.cancelBtn,
+.confirmBtn {
+  padding: 10px 24px;
+  border-radius: 6px;
+  font-family: 'metropolis', sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid;
+}
+
+.cancelBtn {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.3);
+  color: var(--white1);
+}
+
+.cancelBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--white1);
+}
+
+.confirmBtn {
+  background: var(--neon);
+  border-color: var(--neon);
+  color: var(--dark1);
+  font-weight: bold;
+}
+
+.confirmBtn:hover {
+  background: var(--neon-muted);
+  border-color: var(--neon-muted);
+  box-shadow: 0 0 15px rgba(34, 211, 238, 0.5);
+}

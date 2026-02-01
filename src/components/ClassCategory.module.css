@@ -1,0 +1,102 @@
+/* ClassCategory Component Styles */
+.categoryCard {
+  border: 1px solid rgba(212, 212, 212, 0.2);
+  border-radius: 12px;
+  min-width: 280px;
+  max-width: 350px;
+  margin: 0 5px ;
+}
+
+/* Drag over state - only hover effect allowed */
+.categoryCard.dragOver {
+  border-color: var(--neon);
+  background: rgba(34, 211, 238, 0.1);
+  box-shadow: 0 0 25px rgba(34, 211, 238, 0.4);
+}
+
+/* Category header */
+.categoryHeader {
+  background: rgba(212, 212, 212, 0.2);
+  border-bottom: 1px solid rgba(212, 212, 212, 0.2);
+  border-radius: 12px 12px 0 0;
+  height: 50px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  margin-bottom: 10px;
+}
+
+/* Category actions - always visible */
+.categoryActions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  gap: 6px;
+  opacity: 1;
+}
+
+/* Button styles */
+.editBtn,
+.deleteBtn {
+  background: transparent;
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  color: var(--neon);
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+
+/* Category name */
+.categoryName {
+  color: var(--white1);
+  font-family: 'metropolisBold', sans-serif;
+  font-size: 22px;
+  margin: 0;
+}
+
+/* Drop indicator */
+.dropIndicator {
+  text-align: center;
+  color: var(--neon);
+  font-family: 'metropolis', sans-serif;
+  font-size: 14px;
+  padding: 10px;
+  border: 2px dashed var(--neon);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Classes container */
+.classesContainer {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Empty category message */
+.emptyCategory {
+  color: rgba(255, 255, 255, 0.4);
+  font-family: 'metropolis', sans-serif;
+  font-size: 14px;
+  text-align: center;
+  padding: 20px;
+  font-style: italic;
+}

@@ -2,7 +2,7 @@ let toastContainer = null;
 
 const createToastContainer = () => {
   if (toastContainer) return toastContainer;
-  
+
   toastContainer = document.createElement('div');
   toastContainer.className = 'toast-container';
   document.body.appendChild(toastContainer);
@@ -11,31 +11,46 @@ const createToastContainer = () => {
 
 const showToast = (message, type = 'success', duration = 3000) => {
   const container = createToastContainer();
-  
+
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
-  
+
+  const iconSpan = document.createElement('span');
+  iconSpan.className = 'toast-icon';
+  iconSpan.setAttribute('aria-hidden', 'true');
+
+  const content = document.createElement('div');
+  content.className = 'toast-content';
+
+  const titleSpan = document.createElement('span');
+  titleSpan.className = 'toast-title';
+  titleSpan.textContent = type.charAt(0).toUpperCase() + type.slice(1);
+
   const messageSpan = document.createElement('span');
+  messageSpan.className = 'toast-message';
   messageSpan.textContent = message;
-  
+
   const closeButton = document.createElement('button');
   closeButton.className = 'toast-close';
-  closeButton.innerHTML = '×';
+  closeButton.innerHTML = '&times;';
   closeButton.onclick = () => removeToast(toast);
-  
-  toast.appendChild(messageSpan);
+
+  content.appendChild(titleSpan);
+  content.appendChild(messageSpan);
+  toast.appendChild(iconSpan);
+  toast.appendChild(content);
   toast.appendChild(closeButton);
   container.appendChild(toast);
-  
+
   // Auto remove after duration
   setTimeout(() => removeToast(toast), duration);
-  
+
   return toast;
 };
 
 const removeToast = (toast) => {
   if (!toast || !toast.parentNode) return;
-  
+
   toast.classList.add('removing');
   setTimeout(() => {
     if (toast.parentNode) {
@@ -47,5 +62,7 @@ const removeToast = (toast) => {
 export const toast = {
   success: (message, duration) => showToast(message, 'success', duration),
   error: (message, duration) => showToast(message, 'error', duration),
+  warning: (message, duration) => showToast(message, 'warning', duration),
+  info: (message, duration) => showToast(message, 'info', duration),
   remove: removeToast
 };

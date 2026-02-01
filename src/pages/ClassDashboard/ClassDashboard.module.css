@@ -1,0 +1,171 @@
+/* ClassDashboard Component Styles */
+.dashboard {
+  min-height: 100vh;
+  height: 100vh;
+  width: 100%;
+  background: var(--dark1);
+  position: relative;
+  font-family: 'metropolis', sans-serif;
+  background: none;
+  background-image: url('../../assets/imgs/bac.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat; 
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 50px;
+}
+.producttitle{
+  height: 50px;
+  font-size: 1.9rem;
+  font-weight: 1000;
+  color: var(--white1);
+  display: flex;
+  text-align: center;
+  align-items: center;
+  justify-content: center;
+}
+.productlogo{
+  width:  40px;
+  height: 40px;
+  background-image: url('../imgs/logoLight.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  margin-right: 10px;
+}
+/* Header Section */
+.header {
+  height: 60px;
+  padding: 0 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.title {
+  color: var(--white1);
+  font-family: 'metropolisBold', sans-serif;
+  font-size: 32px;
+  margin: 0;
+  margin-left: 10px;
+}
+
+/* Header Actions */
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Add Category Input Container */
+.addCategoryInputContainer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--dark2);
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(34, 211, 238, 0.3);
+}
+
+.cancelBtn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: var(--white1);
+  padding: 6px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: 'metropolis', sans-serif;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.cancelBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--white1);
+}
+
+.categoryInput {
+  background: var(--dark1);
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: var(--white1);
+  font-family: 'metropolis', sans-serif;
+  font-size: 14px;
+  min-width: 200px;
+  transition: all 0.2s ease;
+}
+
+.categoryInput:focus {
+  outline: none;
+  border-color: var(--neon);
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.3);
+}
+
+/* Add Category Button */
+.addCategoryBtn {
+  background: var(--light1);
+  border: none;
+  color: var(--white1);
+  padding: 10px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: 'metropolisBold', sans-serif;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(23, 156, 145, 0.3);
+}
+
+
+/* Category Container (Middle Section) */
+.categoryContainer {
+  width: 100%;
+  height: 100%;
+  padding: 10px 10px;
+  display: flex;
+  flex-direction: row;
+  /* gap: 10px; */
+  overflow-x: auto;
+  min-height: 400px;
+}
+
+/* Scrollbar styling for category container */
+.categoryContainer::-webkit-scrollbar {
+  height: 8px;
+}
+
+.categoryContainer::-webkit-scrollbar-track {
+  background: var(--dark2);
+  border-radius: 4px;
+}
+
+.categoryContainer::-webkit-scrollbar-thumb {
+  background: rgba(34, 211, 238, 0.3);
+  border-radius: 4px;
+}
+
+.categoryContainer::-webkit-scrollbar-thumb:hover {
+  background: rgba(34, 211, 238, 0.5);
+}
+
+/* Add Class Button (Bottom Section - Absolute Positioned) */
+.addClassBtn {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--light1);
+  border: none;
+  color: var(--white1);
+  padding: 14px 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: 'metropolisBold', sans-serif;
+  font-size: 16px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(23, 156, 145, 0.3);
+  z-index: 100;
+}
+

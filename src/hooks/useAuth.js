@@ -17,7 +17,7 @@ export const useAuth = () => {
     clearMessages();
     
     try {
-      const response = await apiClient.post('/api/auth/signup', {
+      const response = await apiClient.post('/auth/signup', {
         email,
         password,
         confirmPassword
@@ -38,18 +38,25 @@ export const useAuth = () => {
     clearMessages();
     
     try {
-      const response = await apiClient.post('/api/auth/login', {
+      const response = await apiClient.post('/auth/login', {
         email,
         password
       });
       
-      if (response.token) {
-        setToken(response.token);
+      console.log('API Response:', response);
+      console.log('Response accessToken:', response.accessToken);
+      
+      if (response.accessToken) {
+        setToken(response.accessToken);
         setSuccess('Login successful!');
+        console.log('Token saved to localStorage');
+      } else {
+        console.error('No accessToken found in response');
       }
       
       return response;
     } catch (err) {
+      console.error('Login error:', err);
       setError(err.message || 'Login failed. Please check your credentials.');
       throw err;
     } finally {
@@ -62,7 +69,7 @@ export const useAuth = () => {
     clearMessages();
     
     try {
-      await apiClient.post('/api/auth/logout');
+      await apiClient.post('/auth/logout');
       deleteToken();
       setSuccess('Logged out successfully');
     } catch (err) {

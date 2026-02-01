@@ -1,16 +1,18 @@
-const TOKEN_KEY = 'accessToken';
 
-export const setToken = (token) => {
-  if (!token) return;
-  localStorage.setItem(TOKEN_KEY, token);
+export const setToken = (accessToken) => {
+  if (!accessToken) {
+    return;
+  }
+  localStorage.setItem("accessToken", accessToken);
+  const savedToken = localStorage.getItem("accessToken");
 };
 
 export const getToken = () => {
-  return localStorage.getItem(TOKEN_KEY);
+  return localStorage.getItem("accessToken");
 };
 
 export const deleteToken = () => {
-  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem("accessToken");
 };
 
 export const isAuthenticated = () => {

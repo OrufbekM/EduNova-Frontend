@@ -1,0 +1,18 @@
+/* ===========================
+   LANDING PAGE STYLES
+   =========================== */
+
+.auth-inline-container {
+  position: relative;
+  z-index: 0;
+}
+
+.landing-page {
+  width: 100%;
+  min-height: 100vh;
+  background-color: var(--color-black);
+}
+
+.landing-page main {
+  width: 100%;
+}

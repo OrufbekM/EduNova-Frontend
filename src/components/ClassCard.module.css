@@ -1,0 +1,70 @@
+/* ClassCard Component Styles */
+.classCard {
+  /* background: var(--dark2); */
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 10px;
+  cursor: pointer;
+  position: relative;
+  margin: 5px 10px;
+}
+
+/* Dragging state */
+.classCard.dragging {
+  opacity: 0.5;
+}
+
+/* Action buttons container - always visible */
+.actionButtons {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 6px;
+  opacity: 1;
+}
+
+/* Button styles */
+.editBtn,
+.deleteBtn,
+.moveBtn {
+  background: transparent;
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  color: var(--neon);
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.moveBtn {
+  cursor: grab;
+}
+
+.moveBtn:active {
+  cursor: grabbing;
+}
+
+/* Class content */
+.classContent {
+  padding-right: 0;
+}
+
+.className {
+  color: var(--white1);
+  font-family: 'metropolisBold', sans-serif;
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+
+.classDescription {
+  color: rgba(255, 255, 255, 0.7);
+  font-family: 'metropolis', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+}
