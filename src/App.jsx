@@ -1,5 +1,6 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import Login from './pages/Auth'
 import ClassPage from './pages/ClassPage/ClassPage'
 import './App.css'
@@ -64,9 +65,37 @@ const ClassManagementRoute = () => {
   )
 }
 
+const TitleManager = () => {
+  const location = useLocation()
+  const params = new URLSearchParams(location.search)
+  const pathname = location.pathname
+  let title = 'EduNova'
+
+  if (pathname === '/') {
+    title = 'EduNova'
+  } else if (pathname.startsWith('/login')) {
+    title = params.get('mode') === 'signup' ? 'EduNova Sign Up' : 'EduNova Login'
+  } else if (pathname.startsWith('/dashboard') || pathname.startsWith('/management')) {
+    title = 'EduNova Class Management'
+  } else if (pathname.startsWith('/class/')) {
+    title = 'EduNova Class'
+  }
+
+  useEffect(() => {
+    document.title = title
+  }, [title])
+
+  return (
+    <Helmet>
+      <title>{title}</title>
+    </Helmet>
+  )
+}
+
 function App() {
   return (
     <Router>
+      <TitleManager />
       <Routes>
         <Route path="/login" element={<LoginRoute />} />
         <Route path="/dashboard" element={<ClassManagementRoute />} />
