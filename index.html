@@ -2,23 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link id="app-favicon" rel="icon" type="image/png" href="/src/assets/imgs/logoDark.png" />
+    <link rel="icon" type="image/png" href="/logoLight.png" media="(prefers-color-scheme: light)" />
+    <link rel="icon" type="image/png" href="/logoDark.png" media="(prefers-color-scheme: dark)" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>EduNova</title>
-    <script>
-      (() => {
-        const darkIcon = '/src/assets/imgs/logoLight.png'
-        const lightIcon = '/src/assets/imgs/logoDark.png'
-        const favicon = document.getElementById('app-favicon')
-        if (!favicon) return
-        const setFavicon = (isDark) => {
-          favicon.href = isDark ? darkIcon : lightIcon
-        }
-        const media = window.matchMedia('(prefers-color-scheme: dark)')
-        setFavicon(media.matches)
-        media.addEventListener('change', (event) => setFavicon(event.matches))
-      })()
-    </script>
   </head>
   <body>
     <div id="root"></div>
