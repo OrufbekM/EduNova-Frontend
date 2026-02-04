@@ -3,16 +3,48 @@
    =========================== */
 
 .class-page {
-  min-height: 100vh;
   height: 100vh;
   width: 100%;
   margin: 0;
+  padding: 0;
   display: flex;
-  background: var(--color-black);
-  border-radius: none;
+  background: var(--color-fullblack);
   overflow: hidden;
   position: relative;
-  border: 1px solid color-mix(in srgb, var(--color-white) 6%, transparent);
+}
+
+/* ===========================
+   LOADING
+   =========================== */
+
+.cp-loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-lightgray);
+}
+
+.cp-spinner {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 3px solid color-mix(in srgb, var(--color-white) 20%, transparent);
+  border-top-color: var(--color-neon);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-fullblack) 20%, transparent) inset;
+  animation: cp-spin 0.9s linear infinite;
+}
+
+.cp-loading-text {
+  font-size: 0.95rem;
+  letter-spacing: 0.2px;
+  color: var(--color-lightgray);
+}
+
+@keyframes cp-spin {
+  to { transform: rotate(360deg); }
 }
 
 /* ===========================
@@ -50,15 +82,15 @@
 
 .sidebar {
   position: fixed;
-  top: 0;
-  left: 0;
-  height: 100vh;
+  top: 2%;
+  left: 2%;
+  height: 96vh;
   width: 300px;
   display: flex;
   flex-direction: column;
   background: linear-gradient(145deg, color-mix(in srgb, var(--color-white) 4%, transparent), color-mix(in srgb, var(--color-white) 1%, transparent));
   border: 1px solid color-mix(in srgb, var(--color-white) 8%, transparent);
-  border-radius: 0px 16px 16px 0px ;
+  border-radius: 16px;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   z-index: 150;
@@ -556,6 +588,12 @@
   color: var(--color-white);
 }
 
+.sidebar-edit-mode-btn.active {
+  background: color-mix(in srgb, var(--color-neon) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-neon) 35%, transparent);
+  color: var(--color-neon);
+}
+
 /* ===========================
    PAGE CONTAINER
    =========================== */
@@ -570,14 +608,17 @@
 .class-page-content {
   flex: 1;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
+  align-items: stretch;
+  justify-content: flex-start;
+  width: 100%;
+  padding: 0;
+  overflow: hidden;
 }
 
 .class-page-placeholder {
   text-align: center;
   color: var(--color-gray);
+  margin: auto;
 }
 
 .class-page-placeholder h2 {

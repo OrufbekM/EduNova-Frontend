@@ -1,7 +1,20 @@
 import React, { useState } from 'react'
 import { GripVertical, Pencil, Trash2, Check, X } from 'lucide-react'
 
-function ClassCard({ cls, index, categoryId, onEdit, onRequestDelete, onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop, dragOverTarget, onClassDoubleClick }) {
+function ClassCard({
+  cls,
+  index,
+  categoryId,
+  onEdit,
+  onRequestDelete,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  dragOverTarget,
+  onClassDoubleClick
+}) {
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState(cls.name)
 
@@ -41,16 +54,17 @@ function ClassCard({ cls, index, categoryId, onEdit, onRequestDelete, onDragStar
       onDoubleClick={handleDoubleClick}
       style={{ cursor: 'pointer' }}
     >
-      <div
-        className="class-card-handle"
-        draggable={true}
-        onDragStart={(e) => onDragStart(e, categoryId, cls.id, index)}
-        onDragEnd={onDragEnd}
-      >
-        <GripVertical size={14} />
+      <div className="class-card-handle-index">
+        <div className="class-card-index">{index + 1}</div>
+        <div
+          className="class-card-handle"
+          draggable={true}
+          onDragStart={(e) => onDragStart(e, categoryId, cls.id, index)}
+          onDragEnd={onDragEnd}
+        >
+          <GripVertical size={14} />
+        </div>
       </div>
-
-      <div className="class-card-index">{index + 1}</div>
 
       <div className="class-card-content">
         {isEditing ? (

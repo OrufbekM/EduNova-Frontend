@@ -1,9 +1,8 @@
 import React, { Component } from 'react'
 import './Auth.css'
-import { Mail, Lock, ArrowRight, X } from 'lucide-react'
+import { Mail, User, Lock, ArrowRight, X } from 'lucide-react'
 import ThemeToggle from '../assets/ThemeToggle'
 import { login, signup } from '../../api/auth'
-import { toast } from '../../utils/toast'
 
 class Auth extends Component {
   constructor(props) {
@@ -13,6 +12,7 @@ class Auth extends Component {
       loginEmail: '',
       loginPassword: '',
       signupEmail: '',
+      signupUsername: '',
       signupPassword: '',
       signupConfirmPassword: '',
       error: '',
@@ -22,13 +22,11 @@ class Auth extends Component {
 
   componentDidMount() {
     if (this.props.inline) {
-      // Prevent body scroll when Auth is open
       document.body.style.overflow = 'hidden'
     }
   }
 
   componentWillUnmount() {
-    // Restore body scroll when Auth is closed
     document.body.style.overflow = ''
   }
 
@@ -36,8 +34,7 @@ class Auth extends Component {
     if (prevProps.initialMode !== this.props.initialMode) {
       this.setState({ activeTab: this.props.initialMode || 'login' })
     }
-    
-    // Handle body scroll when inline prop changes
+
     if (this.props.inline && !prevProps.inline) {
       document.body.style.overflow = 'hidden'
     } else if (!this.props.inline && prevProps.inline) {
@@ -48,26 +45,20 @@ class Auth extends Component {
   handleLoginSubmit = async (e) => {
     e.preventDefault()
     this.setState({ error: '', loading: true })
-    
+
     try {
       const result = await login(this.state.loginEmail, this.state.loginPassword)
       if (result.success) {
-        toast.success('Login successful')
         if (this.props.onLoginSuccess) {
           this.props.onLoginSuccess()
         } else {
           window.location.href = '/dashboard'
         }
       } else {
-        const message = result.error || 'Login failed'
-        toast.error(message)
-        this.setState({ error: message })
+        this.setState({ error: result.error || 'Login failed' })
       }
     } catch (err) {
-      console.error('Login error:', err);
-      const message = 'An error occurred. Please try again.'
-      toast.error(message)
-      this.setState({ error: message })
+      this.setState({ error: 'An error occurred. Please try again.' })
     } finally {
       this.setState({ loading: false })
     }
@@ -76,42 +67,36 @@ class Auth extends Component {
   handleSignupSubmit = async (e) => {
     e.preventDefault()
     this.setState({ error: '' })
-    
-    // Validation
+
     if (this.state.signupPassword !== this.state.signupConfirmPassword) {
-      const message = 'Passwords do not match'
-      toast.error(message)
-      this.setState({ error: message })
+      this.setState({ error: 'Passwords do not match' })
       return
     }
-    
+
     if (this.state.signupPassword.length < 6) {
-      const message = 'Password must be at least 6 characters'
-      toast.error(message)
-      this.setState({ error: message })
+      this.setState({ error: 'Password must be at least 6 characters' })
       return
     }
-    
+
     this.setState({ loading: true })
-    
+
     try {
-      const result = await signup(this.state.signupEmail, this.state.signupPassword, this.state.signupConfirmPassword)
+      const result = await signup(
+        this.state.signupEmail,
+        this.state.signupPassword,
+        this.state.signupConfirmPassword
+      )
       if (result.success) {
-        toast.success('Account created successfully')
         if (this.props.onLoginSuccess) {
           this.props.onLoginSuccess()
         } else {
           window.location.href = '/dashboard'
         }
       } else {
-        const message = result.error || 'Signup failed'
-        toast.error(message)
-        this.setState({ error: message })
+        this.setState({ error: result.error || 'Signup failed' })
       }
-    } catch {
-      const message = 'An error occurred. Please try again.'
-      toast.error(message)
-      this.setState({ error: message })
+    } catch (err) {
+      this.setState({ error: 'An error occurred. Please try again.' })
     } finally {
       this.setState({ loading: false })
     }
@@ -154,26 +139,26 @@ class Auth extends Component {
             <div className="auth-card-glow"></div>
 
             <div className="auth-switcher">
-              <button 
+              <button
                 className={`auth-switcher-btn ${activeTab === 'login' ? 'active' : ''}`}
                 onClick={() => this.setState({ activeTab: 'login', error: '' })}
               >
                 Login
               </button>
-              <button 
+              <button
                 className={`auth-switcher-btn ${activeTab === 'signup' ? 'active' : ''}`}
                 onClick={() => this.setState({ activeTab: 'signup', error: '' })}
               >
                 Sign Up
               </button>
-              <div 
+              <div
                 className="auth-switcher-indicator"
                 style={{ transform: activeTab === 'login' ? 'translateX(0)' : 'translateX(100%)' }}
               ></div>
             </div>
 
             <div className="auth-form-container">
-              <div 
+              <div
                 className="auth-form-slider"
                 style={{ transform: activeTab === 'login' ? 'translateX(0)' : 'translateX(-50%)' }}
               >
@@ -225,6 +210,18 @@ class Auth extends Component {
                         placeholder="Email"
                         value={this.state.signupEmail}
                         onChange={(e) => this.setState({ signupEmail: e.target.value })}
+                        className="auth-input"
+                        required
+                        disabled={loading}
+                      />
+                    </div>
+                    <div className="auth-input-group">
+                      <div className="auth-input-icon"><User size={18} /></div>
+                      <input
+                        type="text"
+                        placeholder="Username"
+                        value={this.state.signupUsername}
+                        onChange={(e) => this.setState({ signupUsername: e.target.value })}
                         className="auth-input"
                         required
                         disabled={loading}

@@ -38,7 +38,6 @@ function Hero({ onShowAuth }) {
         </h1>
 
         <p className="hero-subtitle">Everything you need to teach smarter, faster</p>
-        <p className="hero-support">This is just our MVP — big updates are coming week by week</p>
 
         <div className="hero-buttons">
           <button 

@@ -52,6 +52,14 @@
 
 .logo-highlight { color: var(--color-neon); }
 
+[data-theme='light'] .logo-icon {
+  background-image: url('/logoDark.png');
+}
+
+[data-theme='light'] .logo-text {
+  color: var(--color-white);
+}
+
 .navbar-actions {
   display: flex;
   align-items: center;

@@ -42,19 +42,34 @@ const showToast = (message, type = 'success', duration = 3000) => {
   toast.appendChild(closeButton);
   container.appendChild(toast);
 
-  // Auto remove after duration
-  setTimeout(() => removeToast(toast), duration);
+  // Auto remove after duration (skip when duration is falsy or <= 0)
+  if (duration && duration > 0) {
+    const timeoutId = setTimeout(() => removeToast(toast), duration);
+    toast.dataset.timeoutId = String(timeoutId);
+  }
 
   return toast;
 };
 
 const removeToast = (toast) => {
-  if (!toast || !toast.parentNode) return;
+  if (!toast || toast.dataset.removing === 'true') return;
+
+  toast.dataset.removing = 'true';
+  const timeoutId = toast.dataset.timeoutId;
+  if (timeoutId) {
+    clearTimeout(Number(timeoutId));
+    toast.dataset.timeoutId = '';
+  }
 
   toast.classList.add('removing');
   setTimeout(() => {
-    if (toast.parentNode) {
-      toast.parentNode.removeChild(toast);
+    if (!toast.isConnected) return;
+    try {
+      toast.remove();
+    } catch {
+      if (toast.parentNode && toast.parentNode.contains(toast)) {
+        toast.parentNode.removeChild(toast);
+      }
     }
   }, 300);
 };
@@ -64,5 +79,6 @@ export const toast = {
   error: (message, duration) => showToast(message, 'error', duration),
   warning: (message, duration) => showToast(message, 'warning', duration),
   info: (message, duration) => showToast(message, 'info', duration),
+  loading: (message = 'Loading...') => showToast(message, 'loading', 0),
   remove: removeToast
 };

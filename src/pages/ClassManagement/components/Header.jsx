@@ -1,8 +1,18 @@
 import React from 'react'
-import { Plus, LogOut } from 'lucide-react'
+import { Plus, User } from 'lucide-react'
 import ThemeToggle from '../../assets/ThemeToggle'
 
-function Header({ showInput, inputValue, onInputChange, onInputKeyDown, onCancel, onAddClick, onLogout }) {
+function Header({
+  showInput,
+  inputValue,
+  onInputChange,
+  onInputKeyDown,
+  onCancel,
+  onAddClick,
+  onLogout,
+  profileOpen,
+  onProfileToggle
+}) {
   return (
     <header className="cm-header">
       <div className="cm-header-left">
@@ -12,9 +22,11 @@ function Header({ showInput, inputValue, onInputChange, onInputKeyDown, onCancel
 
       <div className="cm-header-right">
         <ThemeToggle />
-        <button className="cm-logout-btn" onClick={onLogout} title="Logout">
-          <LogOut size={16} />
-        </button>
+        <div className="cm-profile-wrapper">
+          <button className="cm-profile-toggle" onClick={onProfileToggle} title="Profile">
+            <User size={18} />
+          </button>
+        </div>
         <div className={`cm-add-category-wrapper ${showInput ? 'active' : ''}`}>
           {showInput && (
             <>

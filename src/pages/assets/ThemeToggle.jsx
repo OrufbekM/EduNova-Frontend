@@ -129,10 +129,10 @@ class ThemeToggle extends Component {
       >
         <div style={styles.glossOverlay} />
         <div style={{ ...styles.iconWrapper, ...(isLight ? styles.activeIcon : {}) }}>
-          <Sun size={14} />
+          <Sun size={14} color={isLight ? 'var(--color-neon)' : 'var(--color-lightgray)'} />
         </div>
         <div style={{ ...styles.iconWrapper, ...(!isLight ? styles.activeIcon : {}) }}>
-          <Moon size={14} />
+          <Moon size={14} color={!isLight ? 'var(--color-white)' : 'var(--color-lightgray)'} />
         </div>
       </div>
     )

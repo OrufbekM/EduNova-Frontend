@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { File, GripVertical, Pencil, Trash2, Check, X } from 'lucide-react'
+import { FileText, GripVertical, Pencil, Trash2, Check, X } from 'lucide-react'
 
 function LessonItem({ lesson, onEdit, onRequestDelete, onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop, dragOverId, depth = 0, onLessonDoubleClick, selectedLessonId }) {
   const [isEditing, setIsEditing] = useState(false)
@@ -26,7 +26,7 @@ function LessonItem({ lesson, onEdit, onRequestDelete, onDragStart, onDragEnd, o
   const isDragOver = dragOverId === lesson.id
   const isSelected = selectedLessonId === lesson.id
 
-  const handleDoubleClick = () => {
+  const handleClick = () => {
     if (onLessonDoubleClick) {
       onLessonDoubleClick(lesson.id)
     }
@@ -42,7 +42,7 @@ function LessonItem({ lesson, onEdit, onRequestDelete, onDragStart, onDragEnd, o
       onDragOver={(e) => onDragOver(e, lesson.id, 'lesson')}
       onDragLeave={onDragLeave}
       onDrop={(e) => onDrop(e, lesson.id, 'lesson')}
-      onDoubleClick={handleDoubleClick}
+      onClick={handleClick}
     >
       <div
         className="lesson-handle"
@@ -53,7 +53,7 @@ function LessonItem({ lesson, onEdit, onRequestDelete, onDragStart, onDragEnd, o
         <GripVertical size={12} />
       </div>
 
-      <div className="lesson-icon"><File size={14} /></div>
+      <div className="lesson-icon"><FileText size={14} /></div>
 
       {isEditing ? (
         <input

@@ -145,6 +145,15 @@
   color: var(--color-neon);
 }
 
+/* Light theme logo visibility */
+[data-theme='light'] .auth-logo-icon {
+  background-image: url('/logoDark.png');
+}
+
+[data-theme='light'] .auth-logo-text {
+  color: var(--color-white);
+}
+
 /* ===========================
    CARD (Glassmorphism)
    =========================== */

@@ -2,7 +2,20 @@ import React, { useState } from 'react'
 import { Plus, Pencil, Trash2, Check, X } from 'lucide-react'
 import ClassCard from './ClassCard'
 
-function Category({ category, onAddClass, onEditCategory, onEditClass, onRequestDelete, onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop, dragOverTarget, onClassDoubleClick }) {
+function Category({
+  category,
+  onAddClass,
+  onEditCategory,
+  onEditClass,
+  onRequestDelete,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  dragOverTarget,
+  onClassDoubleClick
+}) {
   const [isHovered, setIsHovered] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState(category.name)
@@ -70,7 +83,7 @@ function Category({ category, onAddClass, onEditCategory, onEditClass, onRequest
         <span className="category-count">{category.classes.length}</span>
       </div>
 
-      <div 
+      <div
         className={`category-body ${isCategoryDragOver ? 'drag-over' : ''}`}
         onDragOver={(e) => {
           e.preventDefault()

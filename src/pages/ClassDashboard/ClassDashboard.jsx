@@ -193,6 +193,7 @@ const ClassDashboard = (props) => {
       return
     }
 
+    const loadingToast = toast.loading('Creating category...')
     try {
       // Call API to create category
       await createCategory(categoryName)
@@ -204,10 +205,12 @@ const ClassDashboard = (props) => {
       setShowAddCategoryInput(false)
       setCategoryInputValue('')
       
+      toast.remove(loadingToast)
       // Show success message
       toast.success('Category created successfully')
     } catch (err) {
       console.error('Error creating category:', err)
+      toast.remove(loadingToast)
       
       // Handle authentication errors
       if (handleAuthError(err)) {
@@ -253,6 +256,7 @@ const ClassDashboard = (props) => {
    */
   const handleSaveEditCategory = async (newName) => {
     if (newName && newName.trim() && editingCategory) {
+      const loadingToast = toast.loading('Updating category...')
       try {
         // Call API to update category
         await updateCategory(editingCategory.id, newName.trim())
@@ -264,10 +268,12 @@ const ClassDashboard = (props) => {
         setShowEditCategoryModal(false)
         setEditingCategory(null)
         
+        toast.remove(loadingToast)
         // Show success message
         toast.success('Category updated successfully')
       } catch (err) {
         console.error('Error updating category:', err)
+        toast.remove(loadingToast)
         
         // Handle authentication errors
         if (handleAuthError(err)) {
@@ -299,6 +305,7 @@ const ClassDashboard = (props) => {
     showConfirmation(
       `Are you sure you want to delete the category "${category.name}"? All classes in this category will also be deleted.`,
       async () => {
+        const loadingToast = toast.loading('Deleting category...')
         try {
           // Call API to delete category
           await deleteCategory(category.id)
@@ -306,10 +313,12 @@ const ClassDashboard = (props) => {
           // Refresh categories from API
           await fetchCategories()
           
+          toast.remove(loadingToast)
           // Show success message
           toast.success('Category deleted successfully')
         } catch (err) {
           console.error('Error deleting category:', err)
+          toast.remove(loadingToast)
           
           // Handle authentication errors
           if (handleAuthError(err)) {
@@ -340,6 +349,7 @@ const ClassDashboard = (props) => {
    * Add new class to selected category
    */
   const handleAddClass = async (classData) => {
+    const loadingToast = toast.loading('Creating class...')
     try {
       // Call API to create class
       await createClass(classData.name, classData.categoryId, classData.description)
@@ -350,10 +360,12 @@ const ClassDashboard = (props) => {
       // Reset modal
       setShowAddClassModal(false)
       
+      toast.remove(loadingToast)
       // Show success message
       toast.success('Class created successfully')
     } catch (err) {
       console.error('Error creating class:', err)
+      toast.remove(loadingToast)
       
       // Handle authentication errors
       if (handleAuthError(err)) {
@@ -394,6 +406,7 @@ const ClassDashboard = (props) => {
    */
   const handleSaveEditClass = async (classData) => {
     if (classData.name && classData.name.trim() && editingClass) {
+      const loadingToast = toast.loading('Updating class...')
       try {
         // Call API to update class
         await updateClass(editingClass.id, classData.name.trim(), classData.categoryId || editingClassCategoryId, classData.description)
@@ -406,10 +419,12 @@ const ClassDashboard = (props) => {
         setEditingClass(null)
         setEditingClassCategoryId(null)
         
+        toast.remove(loadingToast)
         // Show success message
         toast.success('Class updated successfully')
       } catch (err) {
         console.error('Error updating class:', err)
+        toast.remove(loadingToast)
         
         // Handle authentication errors
         if (handleAuthError(err)) {
@@ -442,6 +457,7 @@ const ClassDashboard = (props) => {
     showConfirmation(
       `Are you sure you want to delete the class "${classData.name}"?`,
       async () => {
+        const loadingToast = toast.loading('Deleting class...')
         try {
           // Call API to delete class
           await deleteClass(classData.id)
@@ -449,10 +465,12 @@ const ClassDashboard = (props) => {
           // Refresh categories from API to get updated data
           await fetchCategories()
           
+          toast.remove(loadingToast)
           // Show success message
           toast.success('Class deleted successfully')
         } catch (err) {
           console.error('Error deleting class:', err)
+          toast.remove(loadingToast)
           
           // Handle authentication errors
           if (handleAuthError(err)) {

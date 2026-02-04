@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { getToken, deleteToken } from './token';
 
-const baseURL = import.meta.env.API_BASE_URL || "https://eduboard-dste.onrender.com/api";
+const baseURL = import.meta.env.VITE_API_BASE_URL || import.meta.env.API_BASE_URL || "http://localhost:3000/api";
 
 const apiClient = axios.create({
   baseURL
@@ -16,7 +16,7 @@ apiClient.interceptors.request.use(
     return config;
   },
   (error) => Promise.reject(error)
-);
+); 
 
 apiClient.interceptors.response.use(
   (response) => response.data, 

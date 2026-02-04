@@ -1,6 +1,7 @@
 import React, { Component } from 'react'
 import Sidebar from './components/Sidebar'
 import ConfirmModal from './components/ConfirmModal'
+import LessonEditor from './components/LessonEditor'
 import './ClassPage.css'
 import { getLessons, createLesson, updateLesson, deleteLesson } from '../../api/lessons'
 import { toast } from '../../utils/toast'
@@ -15,9 +16,32 @@ class ClassPage extends Component {
       confirmModal: null,
       dragOverId: null,
       dragOverPosition: null,
-      selectedLessonId: props.selectedLessonId || null
+      selectedLessonId: props.selectedLessonId || null,
+      editMode: false
     }
     this.dragItem = React.createRef()
+  }
+
+  getStoredSelectedLessonId = () => {
+    if (!this.props.classId) return null
+    try {
+      return localStorage.getItem(`classpage:selectedLesson:${this.props.classId}`)
+    } catch (error) {
+      return null
+    }
+  }
+
+  storeSelectedLessonId = (lessonId) => {
+    if (!this.props.classId) return
+    try {
+      if (lessonId) {
+        localStorage.setItem(`classpage:selectedLesson:${this.props.classId}`, String(lessonId))
+      } else {
+        localStorage.removeItem(`classpage:selectedLesson:${this.props.classId}`)
+      }
+    } catch (error) {
+      // Ignore storage failures (private mode, quota, etc.)
+    }
   }
 
   componentDidMount() {
@@ -59,6 +83,7 @@ class ClassPage extends Component {
     }
     if (prevProps.selectedLessonId !== this.props.selectedLessonId) {
       this.setState({ selectedLessonId: this.props.selectedLessonId })
+      this.storeSelectedLessonId(this.props.selectedLessonId)
     }
   }
 
@@ -77,18 +102,22 @@ class ClassPage extends Component {
           name: lesson.name
         }))
         
-        // Auto-select first lesson
+        // Prefer last selected lesson (if still exists), otherwise first lesson
+        const storedSelectedId = this.getStoredSelectedLessonId()
+        const storedItem = storedSelectedId
+          ? items.find(item => String(item.id) === String(storedSelectedId))
+          : null
         const firstLessonId = items.length > 0 && items[0].type === 'lesson' ? items[0].id : null
-        
+        const nextSelectedId = storedItem ? storedItem.id : firstLessonId
+
         this.setState({
           items,
           loading: false,
-          selectedLessonId: firstLessonId || this.state.selectedLessonId
+          selectedLessonId: nextSelectedId || this.state.selectedLessonId
         })
       }
     } catch (error) {
       console.error('Failed to fetch lessons:', error)
-      toast.error('Failed to load lessons')
       this.setState({ loading: false })
     }
   }
@@ -96,23 +125,26 @@ class ClassPage extends Component {
   // Add lesson (root level)
   addLesson = async (name) => {
     if (this.props.classId) {
+      const loadingToast = toast.loading('Creating lesson...')
       try {
         const result = await createLesson(this.props.classId, name)
         if (result.success) {
-          toast.success('Lesson created successfully')
           this.setState({
             items: [...this.state.items, { id: result.data.id, type: 'lesson', name: result.data.name }]
           })
+          toast.remove(loadingToast)
+          toast.success('Lesson created successfully')
         } else {
-          toast.error('Failed to create lesson')
+          toast.remove(loadingToast)
+          toast.error('Failed to create lesson: ' + (result?.message || 'Unknown error'))
         }
       } catch (error) {
         console.error('Failed to create lesson:', error)
-        toast.error('Failed to create lesson')
+        toast.remove(loadingToast)
+        toast.error('Failed to create lesson: ' + (error.message || 'Unknown error'))
       }
     } else {
       // Local state update for demo
-      toast.success('Lesson added successfully')
       this.setState({
         items: [...this.state.items, { id: `lesson-${Date.now()}`, type: 'lesson', name }]
       })
@@ -121,7 +153,6 @@ class ClassPage extends Component {
 
   // Add folder
   addFolder = (name) => {
-    toast.success('Folder created successfully')
     this.setState({
       items: [...this.state.items, { id: `folder-${Date.now()}`, type: 'folder', name, lessons: [] }]
     })
@@ -129,7 +160,6 @@ class ClassPage extends Component {
 
   // Edit folder
   editFolder = (id, newName) => {
-    toast.success('Folder updated successfully')
     this.setState({
       items: this.state.items.map(item =>
         item.id === id ? { ...item, name: newName } : item
@@ -140,10 +170,10 @@ class ClassPage extends Component {
   // Edit lesson (both root and inside folders)
   editLesson = async (id, newName) => {
     if (this.props.classId) {
+      const loadingToast = toast.loading('Updating lesson...')
       try {
         const result = await updateLesson(this.props.classId, id, newName)
         if (result.success) {
-          toast.success('Lesson updated successfully')
           this.setState({
             items: this.state.items.map(item => {
               if (item.id === id) return { ...item, name: newName }
@@ -158,16 +188,19 @@ class ClassPage extends Component {
               return item
             })
           })
+          toast.remove(loadingToast)
+          toast.success('Lesson updated successfully')
         } else {
-          toast.error('Failed to update lesson')
+          toast.remove(loadingToast)
+          toast.error('Failed to update lesson: ' + (result?.message || 'Unknown error'))
         }
       } catch (error) {
         console.error('Failed to update lesson:', error)
-        toast.error('Failed to update lesson')
+        toast.remove(loadingToast)
+        toast.error('Failed to update lesson: ' + (error.message || 'Unknown error'))
       }
     } else {
       // Local state update
-      toast.success('Lesson updated successfully')
       this.setState({
         items: this.state.items.map(item => {
           if (item.id === id) return { ...item, name: newName }
@@ -201,17 +234,16 @@ class ClassPage extends Component {
     const { id, type } = this.state.confirmModal
     
     if (type === 'folder') {
-      toast.success('Folder deleted successfully')
       this.setState({
         items: this.state.items.filter(item => item.id !== id),
         confirmModal: null
       })
     } else {
       if (this.props.classId) {
+        const loadingToast = toast.loading('Deleting lesson...')
         try {
           const result = await deleteLesson(this.props.classId, id)
           if (result.success) {
-            toast.success('Lesson deleted successfully')
             this.setState({
               items: this.state.items.map(item => {
                 if (item.id === id) return null
@@ -222,15 +254,18 @@ class ClassPage extends Component {
               }).filter(Boolean),
               confirmModal: null
             })
+            toast.remove(loadingToast)
+            toast.success('Lesson deleted successfully')
           } else {
-            toast.error('Failed to delete lesson')
+            toast.remove(loadingToast)
+            toast.error('Failed to delete lesson: ' + (result?.message || 'Unknown error'))
           }
         } catch (error) {
           console.error('Failed to delete lesson:', error)
-          toast.error('Failed to delete lesson')
+          toast.remove(loadingToast)
+          toast.error('Failed to delete lesson: ' + (error.message || 'Unknown error'))
         }
       } else {
-        toast.success('Lesson deleted successfully')
         this.setState({
           items: this.state.items.map(item => {
             if (item.id === id) return null
@@ -533,19 +568,22 @@ class ClassPage extends Component {
 
   handleLessonDoubleClick = (lessonId) => {
     this.setState({ selectedLessonId: lessonId })
+    this.storeSelectedLessonId(lessonId)
     if (this.props.onLessonDoubleClick) {
       this.props.onLessonDoubleClick(lessonId)
     }
   }
 
   render() {
-    const { sidebarOpen, items, confirmModal, dragOverId, selectedLessonId, loading } = this.state
+    const { sidebarOpen, items, confirmModal, dragOverId, selectedLessonId, loading, editMode } = this.state
 
     if (loading) {
+      const loadingLabel = this.props.loadingLabel || 'Loading Lessons'
       return (
         <div className="class-page">
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--color-white)' }}>
-            Loading lessons...
+          <div className="cp-loading">
+            <div className="cp-spinner" aria-label="Loading" />
+            <div className="cp-loading-text">{loadingLabel}</div>
           </div>
         </div>
       )
@@ -587,18 +625,18 @@ class ClassPage extends Component {
           onLessonDoubleClick={this.handleLessonDoubleClick}
           selectedLessonId={selectedLessonId}
           onNavigate={this.props.onNavigate}
+          editMode={editMode}
+          onToggleEditMode={() => this.setState({ editMode: !editMode })}
         />
 
         <div className="class-page-container">
           <div className="class-page-content">
             {selectedLesson ? (
-              <div className="lesson-viewer">
-                <h2 className="lesson-viewer-title">{selectedLesson.name}</h2>
-                <div className="lesson-viewer-content">
-                  <p>Lesson content will be displayed here...</p>
-                  <p>This is a placeholder for the lesson content.</p>
-                </div>
-              </div>
+              <LessonEditor
+                classId={this.props.classId}
+                lessonId={selectedLesson.id}
+                editMode={editMode}
+              />
             ) : (
               <div className="class-page-placeholder">
                 <h2>Select a lesson to view</h2>
