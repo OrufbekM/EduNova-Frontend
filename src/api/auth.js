@@ -15,8 +15,8 @@ export const login = async (email, password) => {
   return { success: true, data: response };
 };
 
-export const signup = async (email, password, confirmPassword) => {
-  const response = await apiClient.post('/auth/signup', { email, password, confirmPassword });
+export const signup = async (email, username, password, confirmPassword) => {
+  const response = await apiClient.post('/auth/signup', { email, username, password, confirmPassword });
   if (response?.accessToken) {
     setToken(response.accessToken);
   }

@@ -83,6 +83,7 @@ class Auth extends Component {
     try {
       const result = await signup(
         this.state.signupEmail,
+        this.state.signupUsername,
         this.state.signupPassword,
         this.state.signupConfirmPassword
       )

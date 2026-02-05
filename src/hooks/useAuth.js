@@ -12,13 +12,14 @@ export const useAuth = () => {
     setSuccess(null);
   }, []);
 
-  const signup = useCallback(async (email, password, confirmPassword) => {
+  const signup = useCallback(async (email, username, password, confirmPassword) => {
     setLoading(true);
     clearMessages();
     
     try {
       const response = await apiClient.post('/auth/signup', {
         email,
+        username,
         password,
         confirmPassword
       });
