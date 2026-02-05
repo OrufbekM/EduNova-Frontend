@@ -62,3 +62,9 @@ export const deleteClass = async (categoryId, classId) => {
   await apiClient.delete(`/class/${classId}/delete`);
   return { success: true };
 };
+
+// Reorder classes within a category.
+// Backend does not currently expose a reorder endpoint, so we keep UI order locally.
+export const reorderClasses = async () => {
+  return { success: true };
+};

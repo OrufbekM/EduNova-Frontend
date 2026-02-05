@@ -153,6 +153,8 @@ class Sidebar extends Component {
                   onDragLeave={onDragLeave}
                   onDrop={onDrop}
                   dragOverId={dragOverId}
+                  onLessonDoubleClick={onLessonDoubleClick}
+                  selectedLessonId={selectedLessonId}
                 />
               ) : (
                 <LessonItem

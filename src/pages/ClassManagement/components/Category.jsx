@@ -1,21 +1,8 @@
 import React, { useState } from 'react'
-import { Plus, Pencil, Trash2, Check, X } from 'lucide-react'
+import { Plus, PencilLine, Trash2, Check, X } from 'lucide-react'
 import ClassCard from './ClassCard'
 
-function Category({
-  category,
-  onAddClass,
-  onEditCategory,
-  onEditClass,
-  onRequestDelete,
-  onDragStart,
-  onDragEnd,
-  onDragOver,
-  onDragLeave,
-  onDrop,
-  dragOverTarget,
-  onClassDoubleClick
-}) {
+function Category({ category, onAddClass, onEditCategory, onEditClass, onRequestDelete, onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop, dragOverTarget, onClassDoubleClick }) {
   const [isHovered, setIsHovered] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState(category.name)
@@ -50,7 +37,7 @@ function Category({
           {isHovered && !isEditing && (
             <div className="category-header-actions">
               <button className="category-action-btn" onClick={() => setIsEditing(true)}>
-                <Pencil size={14} />
+                <PencilLine size={14} />
               </button>
               <button className="category-action-btn delete" onClick={() => onRequestDelete('category', category.id, null, category.name)}>
                 <Trash2 size={14} />
@@ -83,7 +70,7 @@ function Category({
         <span className="category-count">{category.classes.length}</span>
       </div>
 
-      <div
+      <div 
         className={`category-body ${isCategoryDragOver ? 'drag-over' : ''}`}
         onDragOver={(e) => {
           e.preventDefault()

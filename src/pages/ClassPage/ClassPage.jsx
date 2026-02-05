@@ -4,6 +4,7 @@ import ConfirmModal from './components/ConfirmModal'
 import LessonEditor from './components/LessonEditor'
 import './ClassPage.css'
 import { getLessons, createLesson, updateLesson, deleteLesson } from '../../api/lessons'
+import { getFolders, createFolder, updateFolder, deleteFolder, reorderFolder } from '../../api/folders'
 import { toast } from '../../utils/toast'
 
 class ClassPage extends Component {
@@ -92,15 +93,41 @@ class ClassPage extends Component {
     
     this.setState({ loading: true })
     try {
-      const result = await getLessons(this.props.classId)
-      if (result.success) {
-        // Transform flat lessons to folder/lesson structure
-        // For MVP, we'll use a simple structure
-        const items = result.data.map(lesson => ({
-          id: lesson.id,
-          type: 'lesson',
-          name: lesson.name
+      const [lessonsResult, foldersResult] = await Promise.all([
+        getLessons(this.props.classId),
+        getFolders(this.props.classId)
+      ])
+      if (lessonsResult.success && foldersResult.success) {
+        const folders = (foldersResult.data || []).map(folder => ({
+          ...folder,
+          type: 'folder',
+          lessons: []
         }))
+
+        const folderMap = new Map(folders.map(folder => [String(folder.id), folder]))
+        const rootLessons = []
+
+        ;(lessonsResult.data || []).forEach((lesson) => {
+          const lessonItem = {
+            id: lesson.id,
+            type: 'lesson',
+            name: lesson.name,
+            folderId: lesson.folderId || null
+          }
+          if (lesson.folderId && folderMap.has(String(lesson.folderId))) {
+            folderMap.get(String(lesson.folderId)).lessons.push(lessonItem)
+          } else {
+            rootLessons.push(lessonItem)
+          }
+        })
+
+        folders.sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0) || a.id - b.id)
+        folders.forEach(folder => {
+          folder.lessons.sort((a, b) => String(a.id).localeCompare(String(b.id)))
+        })
+        rootLessons.sort((a, b) => String(a.id).localeCompare(String(b.id)))
+
+        const items = [...folders, ...rootLessons]
         
         // Prefer last selected lesson (if still exists), otherwise first lesson
         const storedSelectedId = this.getStoredSelectedLessonId()
@@ -152,19 +179,66 @@ class ClassPage extends Component {
   }
 
   // Add folder
-  addFolder = (name) => {
-    this.setState({
-      items: [...this.state.items, { id: `folder-${Date.now()}`, type: 'folder', name, lessons: [] }]
-    })
+  addFolder = async (name) => {
+    if (this.props.classId) {
+      const loadingToast = toast.loading('Creating folder...')
+      try {
+        const result = await createFolder(this.props.classId, name)
+        if (result.success) {
+          this.setState({
+            items: [
+              ...this.state.items,
+              { id: result.data.id, type: 'folder', name: result.data.name, lessons: [], orderIndex: result.data.orderIndex ?? 0 }
+            ]
+          })
+          toast.remove(loadingToast)
+          toast.success('Folder created successfully')
+        } else {
+          toast.remove(loadingToast)
+          toast.error('Failed to create folder')
+        }
+      } catch (error) {
+        console.error('Failed to create folder:', error)
+        toast.remove(loadingToast)
+        toast.error('Failed to create folder')
+      }
+    } else {
+      this.setState({
+        items: [...this.state.items, { id: `folder-${Date.now()}`, type: 'folder', name, lessons: [] }]
+      })
+    }
   }
 
   // Edit folder
-  editFolder = (id, newName) => {
-    this.setState({
-      items: this.state.items.map(item =>
-        item.id === id ? { ...item, name: newName } : item
-      )
-    })
+  editFolder = async (id, newName) => {
+    if (this.props.classId) {
+      const loadingToast = toast.loading('Updating folder...')
+      try {
+        const result = await updateFolder(id, newName)
+        if (result.success) {
+          this.setState({
+            items: this.state.items.map(item =>
+              item.id === id ? { ...item, name: newName } : item
+            )
+          })
+          toast.remove(loadingToast)
+          toast.success('Folder updated successfully')
+        } else {
+          toast.remove(loadingToast)
+          toast.error('Failed to update folder')
+        }
+      } catch (error) {
+        console.error('Failed to update folder:', error)
+        toast.remove(loadingToast)
+        toast.error('Failed to update folder')
+      }
+    } else {
+      this.setState({
+        items: this.state.items.map(item =>
+          item.id === id ? { ...item, name: newName } : item
+        )
+      })
+    }
   }
 
   // Edit lesson (both root and inside folders)
@@ -234,10 +308,32 @@ class ClassPage extends Component {
     const { id, type } = this.state.confirmModal
     
     if (type === 'folder') {
-      this.setState({
-        items: this.state.items.filter(item => item.id !== id),
-        confirmModal: null
-      })
+      if (this.props.classId) {
+        const loadingToast = toast.loading('Deleting folder...')
+        try {
+          const result = await deleteFolder(id)
+          if (result.success) {
+            this.setState({
+              items: this.state.items.filter(item => item.id !== id),
+              confirmModal: null
+            })
+            toast.remove(loadingToast)
+            toast.success('Folder deleted successfully')
+          } else {
+            toast.remove(loadingToast)
+            toast.error('Failed to delete folder')
+          }
+        } catch (error) {
+          console.error('Failed to delete folder:', error)
+          toast.remove(loadingToast)
+          toast.error('Failed to delete folder')
+        }
+      } else {
+        this.setState({
+          items: this.state.items.filter(item => item.id !== id),
+          confirmModal: null
+        })
+      }
     } else {
       if (this.props.classId) {
         const loadingToast = toast.loading('Deleting lesson...')
@@ -366,60 +462,20 @@ class ClassPage extends Component {
   }
 
   // Drop
-  handleDrop = (e, targetId, targetType) => {
+  handleDrop = async (e, targetId, targetType) => {
     e.preventDefault()
     e.stopPropagation()
-    
-    // Clean up visual indicators
+
     document.querySelectorAll('.drag-over-above, .drag-over-below').forEach(el => {
       el.classList.remove('drag-over-above', 'drag-over-below')
     })
-    
+
     this.setState({ dragOverId: null })
-    
-    // Check if dropping on folder-children container (empty space in folder)
+
     const isFolderChildren = e.target.classList.contains('folder-children') || e.currentTarget.classList.contains('folder-children')
     const dropPosition = isFolderChildren ? 'below' : (this.state.dragOverPosition || 'below')
 
     if (!this.dragItem.current) {
-      this.setState({ dragOverPosition: null })
-      return
-    }
-    
-    // Dropping on empty sidebar-content -> add to root level at bottom
-    if (targetId === null && targetType === 'root') {
-      const { id: dragId, type: dragType } = this.dragItem.current
-      const dragLoc = this.findItemLocation(dragId)
-      
-      if (!dragLoc) {
-        this.setState({ dragOverPosition: null })
-        return
-      }
-      
-      this.setState(prevState => {
-        const newItems = JSON.parse(JSON.stringify(prevState.items))
-        
-        // Remove from original location
-        if (dragLoc.location === 'root') {
-          newItems.splice(dragLoc.index, 1)
-        } else {
-          const folder = newItems.find(i => i.id === dragLoc.folderId)
-          if (folder) {
-            folder.lessons.splice(dragLoc.index, 1)
-          }
-        }
-        
-        // Add to root level at bottom
-        newItems.push({ ...dragLoc.item })
-        
-        return { items: newItems, dragOverPosition: null }
-      })
-      
-      this.dragItem.current = null
-      return
-    }
-    
-    if (this.dragItem.current.id === targetId) {
       this.setState({ dragOverPosition: null })
       return
     }
@@ -432,121 +488,118 @@ class ClassPage extends Component {
       return
     }
 
-    this.setState(prevState => {
-      const newItems = JSON.parse(JSON.stringify(prevState.items))
+    if (this.dragItem.current.id === targetId) {
+      this.setState({ dragOverPosition: null })
+      return
+    }
 
-      // Find target location BEFORE removing dragged item
-      const targetLoc = this.findItemLocationInItems(newItems, targetId)
+    let items = JSON.parse(JSON.stringify(this.state.items))
+    let shouldUpdateFolderOrder = false
+    let newLessonFolderId = null
 
-      // Lesson dropped onto folder
+    const removeDragged = () => {
+      if (dragLoc.location === 'root') {
+        items.splice(dragLoc.index, 1)
+      } else {
+        const folder = items.find(i => i.id === dragLoc.folderId)
+        if (folder) {
+          folder.lessons.splice(dragLoc.index, 1)
+        }
+      }
+    }
+
+    if (targetId === null && targetType === 'root') {
+      removeDragged()
+      items.push({ ...dragLoc.item })
+      newLessonFolderId = null
+    } else {
+      const targetLoc = this.findItemLocationInItems(items, targetId)
+
       if (dragType === 'lesson' && targetType === 'folder') {
-        // If dropping on TOP of folder -> place ABOVE folder (outside)
         if (dropPosition === 'above') {
-          // Remove dragged item from original location
-          if (dragLoc.location === 'root') {
-            newItems.splice(dragLoc.index, 1)
-          } else {
-            const folder = newItems.find(i => i.id === dragLoc.folderId)
-            if (folder) {
-              folder.lessons.splice(dragLoc.index, 1)
-            }
-          }
-          
-          // Find folder index and insert lesson above it
-          const folderIndex = newItems.findIndex(i => i.id === targetId)
+          removeDragged()
+          const folderIndex = items.findIndex(i => i.id === targetId)
           if (folderIndex !== -1) {
-            // Adjust index if dragging within same array
             let insertIndex = folderIndex
             if (dragLoc.location === 'root' && dragLoc.index < folderIndex) {
               insertIndex = folderIndex - 1
             } else if (dragLoc.location === 'root' && dragLoc.index < insertIndex) {
               insertIndex--
             }
-            newItems.splice(insertIndex, 0, { ...dragLoc.item })
+            items.splice(insertIndex, 0, { ...dragLoc.item })
           }
+          newLessonFolderId = null
         } else {
-          // Dropping on BOTTOM of folder -> add to end of folder (inside)
-          // Remove dragged item from original location
-          if (dragLoc.location === 'root') {
-            newItems.splice(dragLoc.index, 1)
-          } else {
-            const folder = newItems.find(i => i.id === dragLoc.folderId)
-            if (folder) {
-              folder.lessons.splice(dragLoc.index, 1)
-            }
-          }
-          
-          const targetFolder = newItems.find(i => i.id === targetId)
+          removeDragged()
+          const targetFolder = items.find(i => i.id === targetId)
           if (targetFolder) {
             targetFolder.lessons.push({ ...dragLoc.item, type: 'lesson' })
           }
+          newLessonFolderId = targetId
         }
-      }
-      // Reorder at root level (folders or lessons)
-      else if (targetLoc && targetLoc.location === 'root') {
-        // Calculate insert index before removal
+      } else if (targetLoc && targetLoc.location === 'root') {
         let insertIndex = dropPosition === 'above' ? targetLoc.index : targetLoc.index + 1
-        
-        // Remove dragged item from original location
         if (dragLoc.location === 'root') {
-          newItems.splice(dragLoc.index, 1)
-          // Adjust insert index if dragging within same array
+          items.splice(dragLoc.index, 1)
           if (dragLoc.index < targetLoc.index) {
-            // Item was removed before target, so target index decreased by 1
             insertIndex = dropPosition === 'above' ? targetLoc.index - 1 : targetLoc.index
           } else if (dragLoc.index < insertIndex) {
-            // Item was removed before insert position
             insertIndex--
           }
         } else {
-          // Remove from folder
-          const folder = newItems.find(i => i.id === dragLoc.folderId)
+          const folder = items.find(i => i.id === dragLoc.folderId)
           if (folder) {
             folder.lessons.splice(dragLoc.index, 1)
           }
         }
-        
-        // Insert at calculated position
-        newItems.splice(insertIndex, 0, { ...dragLoc.item })
-      }
-      // Lesson dropped on lesson inside folder -> insert above or below target
-      else if (targetLoc && targetLoc.location === 'folder' && dragType === 'lesson') {
-        const targetFolder = newItems.find(i => i.id === targetLoc.folderId)
+        items.splice(insertIndex, 0, { ...dragLoc.item })
+        if (dragType === 'folder') shouldUpdateFolderOrder = true
+        if (dragType === 'lesson') newLessonFolderId = null
+      } else if (targetLoc && targetLoc.location === 'folder' && dragType === 'lesson') {
+        const targetFolder = items.find(i => i.id === targetLoc.folderId)
         if (targetFolder) {
-          // Calculate insert index before removal
           let insertIndex = dropPosition === 'above' ? targetLoc.index : targetLoc.index + 1
-          
-          // Remove dragged item from original location
           if (dragLoc.location === 'folder' && dragLoc.folderId === targetLoc.folderId) {
-            // Moving within same folder
             targetFolder.lessons.splice(dragLoc.index, 1)
-            // Adjust insert index if source was before target
             if (dragLoc.index < targetLoc.index) {
               insertIndex = dropPosition === 'above' ? targetLoc.index - 1 : targetLoc.index
             } else if (dragLoc.index < insertIndex) {
               insertIndex--
             }
           } else {
-            // Remove from different location
-            if (dragLoc.location === 'root') {
-              newItems.splice(dragLoc.index, 1)
-            } else {
-              const sourceFolder = newItems.find(i => i.id === dragLoc.folderId)
-              if (sourceFolder) {
-                sourceFolder.lessons.splice(dragLoc.index, 1)
-              }
-            }
+            removeDragged()
           }
-          
-          // Insert at calculated position
           targetFolder.lessons.splice(insertIndex, 0, { ...dragLoc.item, type: 'lesson' })
+          newLessonFolderId = targetLoc.folderId
         }
       }
+    }
 
-      return { items: newItems, dragOverPosition: null }
-    })
-
+    this.setState({ items, dragOverPosition: null })
     this.dragItem.current = null
+
+    if (this.props.classId && dragType === 'lesson' && dragLoc?.item) {
+      const targetFolderId = newLessonFolderId ?? null
+      const currentFolderId = dragLoc.location === 'folder' ? dragLoc.folderId : null
+      if (String(targetFolderId || '') !== String(currentFolderId || '')) {
+        try {
+          await updateLesson(this.props.classId, dragLoc.item.id || dragId, dragLoc.item.name, null, null, null, targetFolderId || '')
+        } catch (error) {
+          console.error('Failed to move lesson:', error)
+        }
+      }
+    }
+
+    if (this.props.classId && shouldUpdateFolderOrder && Array.isArray(items)) {
+      const foldersOnly = items.filter(item => item.type === 'folder')
+      try {
+        await Promise.all(
+          foldersOnly.map((folder, index) => reorderFolder(folder.id, index))
+        )
+      } catch (error) {
+        console.error('Failed to reorder folders:', error)
+      }
+    }
   }
 
   // Helper to find item in modified items array

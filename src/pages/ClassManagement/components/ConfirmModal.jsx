@@ -6,12 +6,12 @@ function ConfirmModal({ title, message, onCancel, onConfirm }) {
     <Modal
       title={title}
       onClose={onCancel}
-      footer={(
+      footer={
         <>
           <button className="modal-btn cancel" onClick={onCancel}>Cancel</button>
           <button className="modal-btn delete" onClick={onConfirm}>Delete</button>
         </>
-      )}
+      }
     >
       <p className="confirm-message">{message}</p>
     </Modal>

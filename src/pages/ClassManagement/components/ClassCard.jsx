@@ -1,20 +1,7 @@
 import React, { useState } from 'react'
-import { GripVertical, Pencil, Trash2, Check, X } from 'lucide-react'
+import { GripVertical, PencilLine, Trash2, Check, X } from 'lucide-react'
 
-function ClassCard({
-  cls,
-  index,
-  categoryId,
-  onEdit,
-  onRequestDelete,
-  onDragStart,
-  onDragEnd,
-  onDragOver,
-  onDragLeave,
-  onDrop,
-  dragOverTarget,
-  onClassDoubleClick
-}) {
+function ClassCard({ cls, index, categoryId, onEdit, onRequestDelete, onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop, dragOverTarget, onClassDoubleClick }) {
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState(cls.name)
 
@@ -97,7 +84,7 @@ function ClassCard({
         ) : (
           <>
             <button className="class-card-btn edit" onClick={() => setIsEditing(true)}>
-              <Pencil size={14} />
+              <PencilLine size={14} />
             </button>
             <button className="class-card-btn delete" onClick={() => onRequestDelete('class', categoryId, cls.id, cls.name)}>
               <Trash2 size={14} />

@@ -21,12 +21,12 @@ function AddClassModal({ categories, defaultCategoryId, onClose, onAdd }) {
     <Modal
       title="Add New Class"
       onClose={onClose}
-      footer={(
+      footer={
         <>
           <button className="modal-btn cancel" onClick={onClose}>Cancel</button>
           <button className="modal-btn done" onClick={handleSubmit}>Done</button>
         </>
-      )}
+      }
     >
       <div className="modal-field">
         <label>Class Name</label>

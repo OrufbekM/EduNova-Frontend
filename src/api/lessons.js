@@ -16,10 +16,11 @@ export const getLessons = async (classId) => {
   return { success: true, data: filtered };
 };
 
-export const createLesson = async (classId, name, text = null, image = null, video = null) => {
+export const createLesson = async (classId, name, text = null, image = null, video = null, folderId = null) => {
   const formData = new FormData();
   formData.append('name', name);
   formData.append('classId', classId);
+  if (folderId !== null && folderId !== undefined) formData.append('folderId', folderId);
   if (text !== null && text !== undefined && text !== '') formData.append('text', text);
   if (image) formData.append('image', image);
   if (video) formData.append('video', video);
@@ -29,10 +30,11 @@ export const createLesson = async (classId, name, text = null, image = null, vid
   return { success: true, data: response };
 };
 
-export const updateLesson = async (classId, lessonId, name, text = null, image = null, video = null) => {
+export const updateLesson = async (classId, lessonId, name, text = null, image = null, video = null, folderId = null) => {
   const formData = new FormData();
   formData.append('name', name);
   formData.append('classId', classId);
+  if (folderId !== null && folderId !== undefined) formData.append('folderId', folderId);
   if (text !== null && text !== undefined && text !== '') formData.append('text', text);
   if (image) formData.append('image', image);
   if (video) formData.append('video', video);

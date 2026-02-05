@@ -11,10 +11,11 @@ import {
   deleteCategory,
   createClass,
   updateClass,
-  deleteClass
+  deleteClass,
+  reorderClasses
 } from '../../api/classes'
 import { logout, getProfile, updateUserProfile, resetPassword } from '../../api/auth'
-import { Pencil, X, LogOut, User } from 'lucide-react'
+import { PencilLine, X, LogOut, UserRound } from 'lucide-react'
 import { toast } from '../../utils/toast'
 
 class ClassManagement extends Component {
@@ -51,6 +52,7 @@ class ClassManagement extends Component {
   componentDidMount() {
     this.fetchCategories()
     this.loadProfile()
+    // Add click outside listener for profile dropdown
     document.addEventListener('click', this.handleClickOutside)
   }
 
@@ -86,7 +88,6 @@ class ClassManagement extends Component {
       }
     } catch (error) {
       console.error('Failed to fetch categories:', error)
-      toast.error('Failed to load categories')
     } finally {
       this.setState({ loading: false })
     }
@@ -99,14 +100,10 @@ class ClassManagement extends Component {
       try {
         const result = await createCategory(this.state.newCategoryName.trim())
         if (result.success) {
-          const newCategory = {
-            ...result.data,
-            classes: result.data?.classes || []
-          }
           toast.remove(loadingToast)
           toast.success('Category created successfully')
           this.setState({
-            categories: [...this.state.categories, newCategory],
+            categories: [...this.state.categories, result.data],
             newCategoryName: '',
             showCategoryInput: false
           })
@@ -130,9 +127,9 @@ class ClassManagement extends Component {
         toast.remove(loadingToast)
         toast.success('Category updated successfully')
         this.setState({
-          categories: this.state.categories.map(cat =>
+          categories: this.state.categories.map(cat => (
             cat.id === catId ? { ...cat, ...result.data, classes: cat.classes } : cat
-          )
+          ))
         })
       } else {
         toast.remove(loadingToast)
@@ -248,9 +245,7 @@ class ClassManagement extends Component {
   requestDelete = (type, catId, clsId, name) => {
     this.setState({
       confirmModal: {
-        type,
-        catId,
-        clsId,
+        type, catId, clsId,
         title: type === 'category' ? 'Delete Category' : 'Delete Class',
         message: `Are you sure you want to delete "${name}"?${type === 'category' ? ' All classes inside will also be deleted.' : ''}`
       }
@@ -264,6 +259,22 @@ class ClassManagement extends Component {
       this.handleDeleteClass(this.state.confirmModal.catId, this.state.confirmModal.clsId)
     }
     this.setState({ confirmModal: null })
+  }
+
+  // Helper: find class location
+  findClassLocation = (classId) => {
+    for (let i = 0; i < this.state.categories.length; i++) {
+      const classIndex = this.state.categories[i].classes.findIndex(c => c.id === classId)
+      if (classIndex !== -1) {
+        return { 
+          categoryId: this.state.categories[i].id, 
+          categoryIndex: i, 
+          classIndex, 
+          classItem: this.state.categories[i].classes[classIndex] 
+        }
+      }
+    }
+    return null
   }
 
   // Drag Start
@@ -295,16 +306,19 @@ class ClassManagement extends Component {
       return
     }
 
+    // Don't highlight the dragged item itself
     if (this.dragItem.current.classId === targetClassId) {
       this.setState({ dragOverTarget: null })
       return
     }
 
     e.dataTransfer.dropEffect = 'move'
-
+    
+    // If hovering over a category (empty or body), set category as target
     if (targetClassId === null) {
       this.setState({ dragOverTarget: { categoryId: targetCatId, classId: null, index: targetIndex } })
     } else {
+      // Hovering over a specific class card
       this.setState({ dragOverTarget: { categoryId: targetCatId, classId: targetClassId, index: targetIndex } })
     }
   }
@@ -327,14 +341,16 @@ class ClassManagement extends Component {
     if (!this.dragItem.current) return
 
     const { categoryId: sourceCatId, classId, index: sourceIndex } = this.dragItem.current
-    const sourceLocation = this.state.categories.find(cat => cat.id === sourceCatId)
-    const movedClass = sourceLocation?.classes?.[sourceIndex]
-
+    const sourceCategory = this.state.categories.find(cat => cat.id === sourceCatId)
+    const movedClass = sourceCategory?.classes?.[sourceIndex]
+    
+    // Don't do anything if dropping on itself in same position
     if (sourceCatId === targetCatId && sourceIndex === targetIndex) {
       this.dragItem.current = null
       return
     }
 
+    // Optimistic update
     this.setState(prevState => {
       const newCategories = JSON.parse(JSON.stringify(prevState.categories))
       const sourceCat = newCategories.find(c => c.id === sourceCatId)
@@ -342,29 +358,40 @@ class ClassManagement extends Component {
 
       if (!sourceCat || !targetCat) return { categories: prevState.categories }
 
-      const [movedItem] = sourceCat.classes.splice(sourceIndex, 1)
+      // Remove from source
+      const [movedClass] = sourceCat.classes.splice(sourceIndex, 1)
 
+      // Calculate insert index - insert BEFORE the target item
       let insertIndex = targetIndex
+      
+      // If moving within same category and source is before target, adjust index
       if (sourceCatId === targetCatId && sourceIndex < targetIndex) {
         insertIndex = targetIndex - 1
       }
 
+      // Clamp to valid range
       insertIndex = Math.max(0, Math.min(insertIndex, targetCat.classes.length))
-      targetCat.classes.splice(insertIndex, 0, movedItem)
+
+      // Insert at target
+      targetCat.classes.splice(insertIndex, 0, movedClass)
 
       return { categories: newCategories }
     })
 
+    // Update via API
     try {
-      if (sourceCatId !== targetCatId && movedClass) {
-        const result = await updateClass(targetCatId, classId, movedClass.name, movedClass.description || '')
-        if (result.success) {
-          toast.success('Class moved successfully')
+      if (sourceCatId === targetCatId) {
+        // Reorder within same category
+        const adjustedIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex
+        await reorderClasses(targetCatId, sourceIndex, adjustedIndex)
+      } else {
+        if (movedClass) {
+          await updateClass(targetCatId, classId, movedClass.name, movedClass.description || '')
         }
       }
     } catch (error) {
-      console.error('Failed to move class:', error)
-      toast.error('Failed to move class')
+      console.error('Failed to reorder classes:', error)
+      // Could revert optimistic update here
     }
 
     this.dragItem.current = null
@@ -383,13 +410,10 @@ class ClassManagement extends Component {
     }
   }
 
-  handleLogout = async () => {
-    try {
-      await logout()
-    } finally {
-      if (this.props.onNavigate) {
-        this.props.onNavigate('/login')
-      }
+  handleLogout = () => {
+    logout()
+    if (this.props.onNavigate) {
+      this.props.onNavigate('/login')
     }
   }
 
@@ -400,7 +424,9 @@ class ClassManagement extends Component {
   }
 
   handleClickOutside = (e) => {
+    // Check if click is outside profile dropdown and not on profile toggle button
     if (this.profileRef.current && !this.profileRef.current.contains(e.target)) {
+      // Check if click is on profile toggle button
       const profileToggle = e.target.closest('.cm-profile-toggle')
       if (!profileToggle) {
         this.setState({ profileOpen: false, profileEditMode: false })
@@ -413,34 +439,31 @@ class ClassManagement extends Component {
   }
 
   handleProfileSave = async () => {
-    const loadingToast = toast.loading('Updating profile...')
     try {
       const result = await updateUserProfile(this.state.profileData)
       if (result.success) {
-        toast.remove(loadingToast)
+        // Update local state with the returned user data
         this.setState({
           profileData: {
             username: result.data.username || '',
             fullName: result.data.fullName || result.data.name || '',
-            email: result.data.email || '',
+            email: result.data.email || this.state.profileData.email || '',
             phoneNumber: result.data.phoneNumber || ''
           },
           profileEditMode: false
         })
-        toast.success('Profile updated successfully')
       } else {
-        toast.remove(loadingToast)
-        toast.error(result.error || 'Failed to update profile')
+        alert(result.error || 'Failed to update profile')
       }
     } catch (error) {
       console.error('Failed to update profile:', error)
-      toast.remove(loadingToast)
-      toast.error('Failed to update profile')
+      alert('Failed to update profile. Please try again.')
     }
   }
 
   handleProfileCancel = () => {
     this.setState({ profileEditMode: false })
+    this.loadProfile()
   }
 
   handleProfileFieldChange = (field, value) => {
@@ -453,7 +476,7 @@ class ClassManagement extends Component {
   }
 
   handleResetPasswordClick = () => {
-    this.setState({
+    this.setState({ 
       resetPasswordModal: true,
       resetPasswordData: {
         currentPassword: '',
@@ -464,7 +487,7 @@ class ClassManagement extends Component {
   }
 
   handleResetPasswordCancel = () => {
-    this.setState({
+    this.setState({ 
       resetPasswordModal: false,
       resetPasswordData: {
         currentPassword: '',
@@ -475,16 +498,16 @@ class ClassManagement extends Component {
   }
 
   handleResetPasswordSave = async () => {
+    // Validate passwords
     if (this.state.resetPasswordData.newPassword !== this.state.resetPasswordData.confirmPassword) {
-      toast.error('New password and confirm password do not match')
+      alert('New password and confirm password do not match')
       return
     }
     if (this.state.resetPasswordData.newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters')
+      alert('Password must be at least 6 characters')
       return
     }
-
-    const loadingToast = toast.loading('Updating password...')
+    
     try {
       const result = await resetPassword(
         this.state.resetPasswordData.currentPassword,
@@ -492,17 +515,14 @@ class ClassManagement extends Component {
         this.state.resetPasswordData.confirmPassword
       )
       if (result.success) {
-        toast.remove(loadingToast)
-        toast.success('Password reset successfully')
+        alert('Password reset successfully')
         this.handleResetPasswordCancel()
       } else {
-        toast.remove(loadingToast)
-        toast.error(result.error || 'Failed to reset password')
+        alert(result.error || 'Failed to reset password')
       }
     } catch (error) {
       console.error('Failed to reset password:', error)
-      toast.remove(loadingToast)
-      toast.error('Failed to reset password')
+      alert('Failed to reset password. Please try again.')
     }
   }
 
@@ -516,16 +536,7 @@ class ClassManagement extends Component {
   }
 
   render() {
-    const {
-      loading,
-      categories,
-      showCategoryInput,
-      newCategoryName,
-      modalOpen,
-      modalCategoryId,
-      confirmModal,
-      dragOverTarget
-    } = this.state
+    const { loading, categories, showCategoryInput, newCategoryName, modalOpen, modalCategoryId, confirmModal, dragOverTarget } = this.state
 
     if (loading) {
       return (
@@ -590,91 +601,93 @@ class ClassManagement extends Component {
           />
         )}
 
+        {/* Profile Dropdown */}
         {this.state.profileOpen && (
           <div className="cm-profile-dropdown-wrapper" ref={this.profileRef}>
             <div className="cm-profile-dropdown">
               <div className="cm-profile-header">
-                <button className="cm-profile-close-btn" onClick={() => this.setState({ profileOpen: false, profileEditMode: false })}>
-                  <X size={16} />
-                </button>
-                <button className="cm-profile-edit-btn" onClick={this.handleProfileEdit}>
-                  <Pencil size={16} />
-                </button>
-                <div className="cm-profile-avatar">
-                  <User size={24} />
+              <button className="cm-profile-close-btn" onClick={() => this.setState({ profileOpen: false, profileEditMode: false })}>
+                <X size={16} />
+              </button>
+              <button className="cm-profile-edit-btn" onClick={this.handleProfileEdit}>
+                <PencilLine size={16} />
+              </button>
+              <div className="cm-profile-avatar">
+                <UserRound size={24} />
+              </div>
+            </div>
+            <div className="cm-profile-content">
+              <div className="cm-profile-field">
+                <label>Username</label>
+                {this.state.profileEditMode ? (
+                  <input
+                    type="text"
+                    value={this.state.profileData.username}
+                    onChange={(e) => this.handleProfileFieldChange('username', e.target.value)}
+                  />
+                ) : (
+                  <div className="cm-profile-value">{this.state.profileData.username || '-'}</div>
+                )}
+              </div>
+              <div className="cm-profile-field">
+                <label>Full Name</label>
+                {this.state.profileEditMode ? (
+                  <input
+                    type="text"
+                    value={this.state.profileData.fullName}
+                    onChange={(e) => this.handleProfileFieldChange('fullName', e.target.value)}
+                  />
+                ) : (
+                  <div className="cm-profile-value">{this.state.profileData.fullName || '-'}</div>
+                )}
+              </div>
+              <div className="cm-profile-field">
+                <label>@email</label>
+                {this.state.profileEditMode ? (
+                  <input
+                    type="email"
+                    value={this.state.profileData.email}
+                    onChange={(e) => this.handleProfileFieldChange('email', e.target.value)}
+                  />
+                ) : (
+                  <div className="cm-profile-value">{this.state.profileData.email || '-'}</div>
+                )}
+              </div>
+              <div className="cm-profile-field">
+                <label>Phone Number</label>
+                {this.state.profileEditMode ? (
+                  <input
+                    type="tel"
+                    value={this.state.profileData.phoneNumber}
+                    onChange={(e) => this.handleProfileFieldChange('phoneNumber', e.target.value)}
+                  />
+                ) : (
+                  <div className="cm-profile-value">{this.state.profileData.phoneNumber || '-'}</div>
+                )}
+              </div>
+              <div className="cm-profile-field">
+                <div className="cm-profile-value cm-profile-reset" onClick={this.handleResetPasswordClick}>
+                  Reset Password
                 </div>
               </div>
-              <div className="cm-profile-content">
-                <div className="cm-profile-field">
-                  <label>Username</label>
-                  {this.state.profileEditMode ? (
-                    <input
-                      type="text"
-                      value={this.state.profileData.username}
-                      onChange={(e) => this.handleProfileFieldChange('username', e.target.value)}
-                    />
-                  ) : (
-                    <div className="cm-profile-value">{this.state.profileData.username || '-'}</div>
-                  )}
+              {this.state.profileEditMode && (
+                <div className="cm-profile-actions">
+                  <button className="cm-profile-btn cancel" onClick={this.handleProfileCancel}>Cancel</button>
+                  <button className="cm-profile-btn save" onClick={this.handleProfileSave}>Save</button>
                 </div>
-                <div className="cm-profile-field">
-                  <label>Full Name</label>
-                  {this.state.profileEditMode ? (
-                    <input
-                      type="text"
-                      value={this.state.profileData.fullName}
-                      onChange={(e) => this.handleProfileFieldChange('fullName', e.target.value)}
-                    />
-                  ) : (
-                    <div className="cm-profile-value">{this.state.profileData.fullName || '-'}</div>
-                  )}
-                </div>
-                <div className="cm-profile-field">
-                  <label>@email</label>
-                  {this.state.profileEditMode ? (
-                    <input
-                      type="email"
-                      value={this.state.profileData.email}
-                      onChange={(e) => this.handleProfileFieldChange('email', e.target.value)}
-                    />
-                  ) : (
-                    <div className="cm-profile-value">{this.state.profileData.email || '-'}</div>
-                  )}
-                </div>
-                <div className="cm-profile-field">
-                  <label>Phone Number</label>
-                  {this.state.profileEditMode ? (
-                    <input
-                      type="tel"
-                      value={this.state.profileData.phoneNumber}
-                      onChange={(e) => this.handleProfileFieldChange('phoneNumber', e.target.value)}
-                    />
-                  ) : (
-                    <div className="cm-profile-value">{this.state.profileData.phoneNumber || '-'}</div>
-                  )}
-                </div>
-                <div className="cm-profile-field">
-                  <div className="cm-profile-value cm-profile-reset" onClick={this.handleResetPasswordClick}>
-                    Reset Password
-                  </div>
-                </div>
-                {this.state.profileEditMode && (
-                  <div className="cm-profile-actions">
-                    <button className="cm-profile-btn cancel" onClick={this.handleProfileCancel}>Cancel</button>
-                    <button className="cm-profile-btn save" onClick={this.handleProfileSave}>Save</button>
-                  </div>
-                )}
-                <div className="cm-profile-footer">
-                  <button className="cm-profile-logout-btn" onClick={this.handleLogout}>
+              )}
+              <div className="cm-profile-footer">
+                <button className="cm-profile-logout-btn" onClick={this.handleLogout}>
                   <LogOut size={16} />
-                    <span>Logout</span>
-                  </button>
-                </div>
+                  <span>Logout</span>
+                </button>
               </div>
             </div>
           </div>
+        </div>
         )}
 
+        {/* Reset Password Modal */}
         {this.state.resetPasswordModal && (
           <div className="modal-overlay" onClick={this.handleResetPasswordCancel}>
             <div className="modal reset-password-modal" onClick={(e) => e.stopPropagation()}>
