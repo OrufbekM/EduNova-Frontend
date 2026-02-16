@@ -3,6 +3,9 @@
    =========================== */
 
 .class-page {
+  --cp-fab-edge: 12px;
+  --cp-fab-size: 48px;
+  --cp-fab-gap: 1110px;
   height: 100vh;
   width: 100%;
   margin: 0;
@@ -615,6 +618,36 @@
   overflow: hidden;
 }
 
+.lesson-and-blackboard-wrap {
+  width: 100%;
+  min-height: 100%;
+}
+
+.blackboard-open-btn {
+  position: fixed;
+  left: auto;
+  right: calc(var(--cp-fab-edge, 12px) + var(--cp-fab-size, 48px) + var(--cp-fab-gap, 12px));
+  bottom: var(--cp-fab-edge, 12px);
+  width: var(--cp-fab-size, 48px);
+  height: var(--cp-fab-size, 48px);
+  border: none;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--color-neon) 80%, var(--color-black));
+  color: var(--color-fullblack);
+  cursor: pointer;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--color-fullblack) 50%, transparent);
+  z-index: 80;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.blackboard-open-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px color-mix(in srgb, var(--color-fullblack) 55%, transparent);
+}
+
 .class-page-placeholder {
   text-align: center;
   color: var(--color-gray);
@@ -801,5 +834,13 @@
   .sidebar-toggle-btn {
     top: 12px;
     left: 12px;
+  }
+
+  .blackboard-open-btn {
+    left: auto;
+    right: calc(var(--cp-fab-edge, 12px) + var(--cp-fab-size, 48px) + var(--cp-fab-gap, 12px));
+    bottom: var(--cp-fab-edge, 12px);
+    width: var(--cp-fab-size, 48px);
+    height: var(--cp-fab-size, 48px);
   }
 }

@@ -84,6 +84,16 @@ export const updateLessonContent = async (classId, lessonId, content) => {
   return updateResult;
 };
 
+export const generateLessonContent = async (lessonId, prompt, options = {}) => {
+  const payload = {
+    lessonId,
+    prompt,
+    ...options
+  };
+  const response = await apiClient.post('/lesson/ai/generate', payload);
+  return { success: true, data: response };
+};
+
 export const updateItemStyle = async () => {
   return { success: true };
 };

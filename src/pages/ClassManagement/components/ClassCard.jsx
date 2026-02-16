@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { GripVertical, PencilLine, Trash2, Check, X } from 'lucide-react'
+import { IconGrip, IconEdit, IconTrash, IconCheck, IconX } from '../../icons.jsx'
 
 function ClassCard({ cls, index, categoryId, onEdit, onRequestDelete, onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop, dragOverTarget, onClassDoubleClick }) {
   const [isEditing, setIsEditing] = useState(false)
@@ -49,7 +49,7 @@ function ClassCard({ cls, index, categoryId, onEdit, onRequestDelete, onDragStar
           onDragStart={(e) => onDragStart(e, categoryId, cls.id, index)}
           onDragEnd={onDragEnd}
         >
-          <GripVertical size={14} />
+          <IconGrip size={14} />
         </div>
       </div>
 
@@ -75,19 +75,19 @@ function ClassCard({ cls, index, categoryId, onEdit, onRequestDelete, onDragStar
         {isEditing ? (
           <>
             <button className="class-card-btn confirm" onClick={handleSave}>
-              <Check size={14} />
+              <IconCheck size={14} />
             </button>
             <button className="class-card-btn cancel" onClick={handleCancel}>
-              <X size={14} />
+              <IconX size={14} />
             </button>
           </>
         ) : (
           <>
             <button className="class-card-btn edit" onClick={() => setIsEditing(true)}>
-              <PencilLine size={14} />
+              <IconEdit size={14} />
             </button>
             <button className="class-card-btn delete" onClick={() => onRequestDelete('class', categoryId, cls.id, cls.name)}>
-              <Trash2 size={14} />
+              <IconTrash size={14} />
             </button>
           </>
         )}

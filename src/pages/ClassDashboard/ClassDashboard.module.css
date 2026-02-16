@@ -15,6 +15,37 @@
   flex-direction: column;
   padding-bottom: 50px;
 }
+
+.loadingState {
+  flex: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  color: var(--white1);
+}
+
+.loadingSpinner {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 3px solid color-mix(in srgb, var(--white1) 20%, transparent);
+  border-top-color: var(--light1);
+  box-shadow: 0 0 0 1px color-mix(in srgb, #000 20%, transparent) inset;
+  animation: dashboardSpin 0.9s linear infinite;
+}
+
+.loadingText {
+  font-size: 0.95rem;
+  letter-spacing: 0.2px;
+  color: var(--white1);
+}
+
+@keyframes dashboardSpin {
+  to { transform: rotate(360deg); }
+}
 .producttitle{
   height: 50px;
   font-size: 1.9rem;
@@ -168,4 +199,3 @@
   box-shadow: 0 4px 15px rgba(23, 156, 145, 0.3);
   z-index: 100;
 }
-

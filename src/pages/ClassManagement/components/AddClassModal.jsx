@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import Modal from './Modal'
-import { ChevronDown } from 'lucide-react'
+import { IconChevronDown } from '../../icons.jsx'
 
 function AddClassModal({ categories, defaultCategoryId, onClose, onAdd }) {
   const [name, setName] = useState('')
@@ -56,7 +56,7 @@ function AddClassModal({ categories, defaultCategoryId, onClose, onAdd }) {
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           >
             <span>{selectedCategory?.name || 'Select category'}</span>
-            <ChevronDown size={16} />
+            <IconChevronDown size={16} />
           </button>
           {isDropdownOpen && (
             <div className="modal-dropdown-list">

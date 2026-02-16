@@ -1,22 +1,23 @@
 import React from 'react'
-import { X } from 'lucide-react'
+import { IconX } from '../../icons.jsx'
+import styles from '../ClassPage.module.css'
 
 function ConfirmModal({ title, message, onCancel, onConfirm }) {
   return (
-    <div className="cp-modal-overlay" onClick={onCancel}>
-      <div className="cp-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="cp-modal-header">
-          <h2 className="cp-modal-title">{title}</h2>
-          <button className="cp-modal-close" onClick={onCancel}>
-            <X size={18} />
+    <div className={styles.cpModalOverlay} onClick={onCancel}>
+      <div className={styles.cpModal} onClick={(e) => e.stopPropagation()}>
+        <div className={styles.cpModalHeader}>
+          <h2 className={styles.cpModalTitle}>{title}</h2>
+          <button className={styles.cpModalClose} onClick={onCancel}>
+            <IconX size={18} />
           </button>
         </div>
-        <div className="cp-modal-body">
-          <p className="cp-modal-message">{message}</p>
+        <div className={styles.cpModalBody}>
+          <p className={styles.cpModalMessage}>{message}</p>
         </div>
-        <div className="cp-modal-footer">
-          <button className="cp-modal-btn cancel" onClick={onCancel}>Cancel</button>
-          <button className="cp-modal-btn delete" onClick={onConfirm}>Delete</button>
+        <div className={styles.cpModalFooter}>
+          <button className={`${styles.cpModalBtn} ${styles.cpModalBtnCancel}`} onClick={onCancel}>Cancel</button>
+          <button className={`${styles.cpModalBtn} ${styles.cpModalBtnDelete}`} onClick={onConfirm}>Delete</button>
         </div>
       </div>
     </div>

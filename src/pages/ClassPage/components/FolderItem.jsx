@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
-import { Folder, FolderOpen, ChevronRight, ChevronDown, GripVertical, Pencil, Trash2, Check, X } from 'lucide-react'
+import { IconFolder, IconFolderOpen, IconChevronRight, IconChevronDown, IconGrip, IconEdit, IconTrash, IconCheck, IconX } from '../../icons.jsx'
 import LessonItem from './LessonItem'
+import styles from '../ClassPage.module.css'
 
 function FolderItem({ folder, onEdit, onRequestDelete, onEditLesson, onRequestDeleteLesson, onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop, dragOverId, onLessonDoubleClick, selectedLessonId }) {
   const [isOpen, setIsOpen] = useState(true)
@@ -28,9 +29,9 @@ function FolderItem({ folder, onEdit, onRequestDelete, onEditLesson, onRequestDe
   const isDragOver = dragOverId === folder.id
 
   return (
-    <div className="folder-wrapper">
+    <div className={styles.folderWrapper}>
       <div
-        className={`folder-item ${isDragOver ? 'drag-over' : ''}`}
+        className={`${styles.folderItem} ${isDragOver ? styles.dragOver : ''}`}
         data-id={folder.id}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
@@ -38,11 +39,10 @@ function FolderItem({ folder, onEdit, onRequestDelete, onEditLesson, onRequestDe
         onDragLeave={onDragLeave}
         onDrop={(e) => onDrop(e, folder.id, 'folder')}
         onClick={(e) => {
-          // Don't toggle if clicking on action buttons, edit input, drag handle, or toggle button
-          if (e.target.closest('.folder-actions') || 
-              e.target.closest('.folder-edit-input') || 
-              e.target.closest('.folder-handle') ||
-              e.target.closest('.folder-toggle')) {
+          if (e.target.closest(`.${styles.folderActions}`) ||
+              e.target.closest(`.${styles.folderEditInput}`) ||
+              e.target.closest(`.${styles.folderHandle}`) ||
+              e.target.closest(`.${styles.folderToggle}`)) {
             return
           }
           setIsOpen(!isOpen)
@@ -50,53 +50,53 @@ function FolderItem({ folder, onEdit, onRequestDelete, onEditLesson, onRequestDe
         style={{ cursor: 'pointer' }}
       >
         <div
-          className="folder-handle"
+          className={styles.folderHandle}
           draggable={true}
           onDragStart={(e) => onDragStart(e, folder.id, 'folder')}
           onDragEnd={onDragEnd}
         >
-          <GripVertical size={12} />
+          <IconGrip size={12} />
         </div>
 
-        <div className="folder-icon">
-          {isOpen ? <FolderOpen size={14} /> : <Folder size={14} />}
+        <div className={styles.folderIcon}>
+          {isOpen ? <IconFolderOpen size={14} /> : <IconFolder size={14} />}
         </div>
 
-        <button className="folder-toggle" onClick={() => setIsOpen(!isOpen)}>
-          {isOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        <button className={styles.folderToggle} onClick={() => setIsOpen(!isOpen)}>
+          {isOpen ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />}
         </button>
 
         {isEditing ? (
           <input
             type="text"
-            className="folder-edit-input"
+            className={styles.folderEditInput}
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
             onKeyDown={handleKeyDown}
             autoFocus
           />
         ) : (
-          <span className="folder-name">{folder.name}</span>
+          <span className={styles.folderName}>{folder.name}</span>
         )}
 
         {isHovered && !isEditing && (
-          <div className="folder-actions">
-            <button className="folder-action-btn" onClick={() => setIsEditing(true)}><Pencil size={12} /></button>
-            <button className="folder-action-btn delete" onClick={() => onRequestDelete(folder.id, folder.name, 'folder')}><Trash2 size={12} /></button>
+          <div className={styles.folderActions}>
+            <button className={styles.folderActionBtn} onClick={() => setIsEditing(true)}><IconEdit size={12} /></button>
+            <button className={`${styles.folderActionBtn} ${styles.delete}`} onClick={() => onRequestDelete(folder.id, folder.name, 'folder')}><IconTrash size={12} /></button>
           </div>
         )}
 
         {isEditing && (
-          <div className="folder-actions">
-            <button className="folder-action-btn confirm" onClick={handleSave}><Check size={12} /></button>
-            <button className="folder-action-btn cancel" onClick={handleCancel}><X size={12} /></button>
+          <div className={styles.folderActions}>
+            <button className={`${styles.folderActionBtn} ${styles.confirm}`} onClick={handleSave}><IconCheck size={12} /></button>
+            <button className={`${styles.folderActionBtn} ${styles.cancel}`} onClick={handleCancel}><IconX size={12} /></button>
           </div>
         )}
       </div>
 
       {isOpen && (
-        <div 
-          className={`folder-children ${isDragOver ? 'drag-over' : ''}`}
+        <div
+          className={`${styles.folderChildren} ${isDragOver ? styles.dragOverFolderChildren : ''}`}
           onDragOver={(e) => {
             e.preventDefault()
             e.stopPropagation()
@@ -128,7 +128,7 @@ function FolderItem({ folder, onEdit, onRequestDelete, onEditLesson, onRequestDe
               />
             ))
           ) : (
-            <div className="folder-empty">Drop lessons here</div>
+            <div className={styles.folderEmpty}>Drop lessons here</div>
           )}
         </div>
       )}

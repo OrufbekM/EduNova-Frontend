@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import './Hero.css'
-import { ArrowRight } from 'lucide-react'
+import { IconArrowRight } from '../../icons.jsx'
 
 function FloatingShapes() {
   return (
@@ -32,12 +32,14 @@ function Hero({ onShowAuth }) {
           <span>MVP Version — Big updates coming weekly</span>
         </div>
 
+        <p className="hero-subtitle">Engineered by Teachers. Perfecting for Teachers.</p>
+
         <h1 className="hero-title">
-          Create professional lessons<br />
+          Build and Provide <br />professional interactive lessons<br />
           with <span className="highlight">AI</span> — in minutes
         </h1>
 
-        <p className="hero-subtitle">Everything you need to teach smarter, faster</p>
+        <p className="hero-subtitle"> <em><q>Teaching is hard, tools shouldn't be</q></em></p>
 
         <div className="hero-buttons">
           <button 
@@ -45,7 +47,7 @@ function Hero({ onShowAuth }) {
             onClick={() => onShowAuth && onShowAuth('signup')}
           >
             <span>Sign Up Free</span>
-            <ArrowRight size={20} />
+            <IconArrowRight size={20} />
           </button>
           <button 
             className="btn btn-secondary btn-large"

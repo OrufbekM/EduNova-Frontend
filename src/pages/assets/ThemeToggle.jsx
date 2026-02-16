@@ -1,20 +1,24 @@
 import React, { Component } from 'react'
-import { Sun, Moon } from 'lucide-react'
+import { SunIcon, MoonIcon } from '../icons.jsx'
 
 /* =========================
    THEME COLORS
    ========================= */
 
+// Green: same in both themes for quiz correct answer
+const quizGreen = '#22a162'
+
 const darkThemeColors = {
   '--color-black': '#151515',
   '--color-fullblack': '#000000',
-  '--color-white': '#F7F7F7',
+  '--color-white': '#C8C8C8',
   '--color-fullwhite': '#ffffff',
   '--color-gray': '#464545',
   '--color-lightgray': '#CFCFCF',
   '--color-neon': '#26CCC2',
   '--color-neon2': '#56DFCF',
   '--color-red': '#a11222',
+  '--color-green': quizGreen,
 }
 
 const lightThemeColors = {
@@ -27,6 +31,7 @@ const lightThemeColors = {
   '--color-neon': '#26CCC2',
   '--color-neon2': '#56DFCF',
   '--color-red': '#a11222',
+  '--color-green': quizGreen,
 }
 
 /* =========================
@@ -129,10 +134,10 @@ class ThemeToggle extends Component {
       >
         <div style={styles.glossOverlay} />
         <div style={{ ...styles.iconWrapper, ...(isLight ? styles.activeIcon : {}) }}>
-          <Sun size={14} color={isLight ? 'var(--color-neon)' : 'var(--color-lightgray)'} />
+          <SunIcon active={isLight} size={14} />
         </div>
         <div style={{ ...styles.iconWrapper, ...(!isLight ? styles.activeIcon : {}) }}>
-          <Moon size={14} color={!isLight ? 'var(--color-white)' : 'var(--color-lightgray)'} />
+          <MoonIcon active={!isLight} size={14} />
         </div>
       </div>
     )

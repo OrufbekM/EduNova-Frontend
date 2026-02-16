@@ -2,9 +2,9 @@ import React, { useEffect, useRef, useState } from 'react'
 import './HowItWorks.css'
 
 const steps = [
-  { number: '01', title: 'Create a class in Class Management', description: 'Set up your classes with ease and organize your teaching workflow.' },
-  { number: '02', title: 'Open the lesson builder', description: 'Access our intuitive lesson builder designed for educators.' },
-  { number: '03', title: 'Enjoy AI assistance and focus on teaching', description: 'Let AI handle the heavy lifting while you focus on what matters.' },
+  { number: '1', title: 'Create a class in Class Management', description: 'Set up your classes with ease and organize your teaching workflow.' },
+  { number: '2', title: 'Open the lesson builder', description: 'Access our intuitive lesson builder designed for educators.' },
+  { number: '3', title: 'Enjoy AI assistance and focus on teaching', description: 'Let AI handle the heavy lifting while you focus on what matters.' },
 ]
 
 function StepCard({ step, index, isVisible }) {
@@ -40,13 +40,13 @@ function HowItWorks() {
 
       <div className="how-container">
         <div className={`how-header ${isVisible ? 'visible' : ''}`}>
-          <span className="section-label">How It Works</span>
+          <span className="section-label">How To Use</span>
           <h2 className="how-title">No complication.<br /><span className="highlight">Just teaching.</span></h2>
         </div>
 
         <div className="steps-container">
           {steps.map((step, index) => (
-            <StepCard key={step.number} step={step} index={index} isVisible={isVisible} />
+            <StepCard key={`step-${step.number}`} step={step} index={index} isVisible={isVisible} />
           ))}
         </div>
       </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Plus, PencilLine, Trash2, Check, X } from 'lucide-react'
+import { IconPlus, IconEdit, IconTrash, IconCheck, IconX } from '../../icons.jsx'
 import ClassCard from './ClassCard'
 
 function Category({ category, onAddClass, onEditCategory, onEditClass, onRequestDelete, onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop, dragOverTarget, onClassDoubleClick }) {
@@ -37,10 +37,10 @@ function Category({ category, onAddClass, onEditCategory, onEditClass, onRequest
           {isHovered && !isEditing && (
             <div className="category-header-actions">
               <button className="category-action-btn" onClick={() => setIsEditing(true)}>
-                <PencilLine size={14} />
+                <IconEdit size={14} />
               </button>
               <button className="category-action-btn delete" onClick={() => onRequestDelete('category', category.id, null, category.name)}>
-                <Trash2 size={14} />
+                <IconTrash size={14} />
               </button>
             </div>
           )}
@@ -56,10 +56,10 @@ function Category({ category, onAddClass, onEditCategory, onEditClass, onRequest
               />
               <div className="category-edit-actions">
                 <button className="category-action-btn confirm" onClick={handleSave}>
-                  <Check size={14} />
+                  <IconCheck size={14} />
                 </button>
                 <button className="category-action-btn cancel" onClick={handleCancel}>
-                  <X size={14} />
+                  <IconX size={14} />
                 </button>
               </div>
             </div>
@@ -106,8 +106,8 @@ function Category({ category, onAddClass, onEditCategory, onEditClass, onRequest
         )}
       </div>
 
-      <button className="category-add-btn" onClick={() => onAddClass(category.id)}>
-        <Plus size={16} />
+      <button className="class-add-btn" onClick={() => onAddClass(category.id)}>
+        <IconPlus size={16} />
         <span>Add Class</span>
       </button>
     </div>

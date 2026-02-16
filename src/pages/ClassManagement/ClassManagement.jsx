@@ -4,23 +4,29 @@ import Category from './components/Category'
 import AddClassModal from './components/AddClassModal'
 import ConfirmModal from './components/ConfirmModal'
 import './ClassManagement.css'
-import {
-  getCategories,
-  createCategory,
-  updateCategory,
+import { 
+  getCategories, 
+  createCategory, 
+  updateCategory, 
   deleteCategory,
   createClass,
   updateClass,
   deleteClass,
   reorderClasses
 } from '../../api/classes'
-import { logout, getProfile, updateUserProfile, resetPassword } from '../../api/auth'
-import { PencilLine, X, LogOut, UserRound } from 'lucide-react'
+import { logout, getCurrentUser, getProfile, updateUserProfile, resetPassword } from '../../api/auth'
+import { IconEdit, IconX, IconLogout, IconUser } from '../icons.jsx'
 import { toast } from '../../utils/toast'
+
+const DEMO_CATEGORY_ID = 'demo-category'
+const DEMO_CLASS_ID = 'demo-class'
+const DEMO_CATEGORY_NAME = 'Demo Category'
+const DEMO_CLASS_NAME = 'Demo Class'
 
 class ClassManagement extends Component {
   constructor(props) {
     super(props)
+    const currentUser = getCurrentUser() || {}
     this.state = {
       categories: [],
       loading: true,
@@ -33,10 +39,10 @@ class ClassManagement extends Component {
       profileOpen: false,
       profileEditMode: false,
       profileData: {
-        username: '',
-        fullName: '',
-        email: '',
-        phoneNumber: ''
+        username: currentUser.username || '',
+        fullName: currentUser.name || '',
+        email: currentUser.email || '',
+        phoneNumber: currentUser.phoneNumber || ''
       },
       resetPasswordModal: false,
       resetPasswordData: {
@@ -51,6 +57,18 @@ class ClassManagement extends Component {
 
   componentDidMount() {
     this.fetchCategories()
+    // Load user profile data
+    const currentUser = getCurrentUser()
+    if (currentUser) {
+      this.setState({
+        profileData: {
+          username: currentUser.username || '',
+          fullName: currentUser.fullName || currentUser.name || '',
+          email: currentUser.email || '',
+          phoneNumber: currentUser.phoneNumber || ''
+        }
+      })
+    }
     this.loadProfile()
     // Add click outside listener for profile dropdown
     document.addEventListener('click', this.handleClickOutside)
@@ -60,20 +78,72 @@ class ClassManagement extends Component {
     document.removeEventListener('click', this.handleClickOutside)
   }
 
+  isDemoCategory = (category = {}) => {
+    const name = String(category?.name || '').trim().toLowerCase()
+    return String(category?.id) === DEMO_CATEGORY_ID || name === DEMO_CATEGORY_NAME.toLowerCase()
+  }
+
+  isDemoClass = (cls = {}) => {
+    const name = String(cls?.name || '').trim().toLowerCase()
+    return String(cls?.id) === DEMO_CLASS_ID || name === DEMO_CLASS_NAME.toLowerCase()
+  }
+
+  ensureDemoData = (categories = []) => {
+    const safeCategories = Array.isArray(categories)
+      ? categories.map((cat) => ({ ...cat, classes: Array.isArray(cat.classes) ? [...cat.classes] : [] }))
+      : []
+
+    const demoCategoryIndex = safeCategories.findIndex((cat) => this.isDemoCategory(cat))
+
+    if (demoCategoryIndex === -1) {
+      return [
+        {
+          id: DEMO_CATEGORY_ID,
+          name: DEMO_CATEGORY_NAME,
+          classes: [
+            {
+              id: DEMO_CLASS_ID,
+              name: DEMO_CLASS_NAME,
+              description: 'This is a protected demo class.'
+            }
+          ]
+        },
+        ...safeCategories
+      ]
+    }
+
+    const demoCategory = safeCategories[demoCategoryIndex]
+    const hasDemoClass = (demoCategory.classes || []).some((cls) => this.isDemoClass(cls))
+
+    if (!hasDemoClass) {
+      demoCategory.classes = [
+        {
+          id: DEMO_CLASS_ID,
+          name: DEMO_CLASS_NAME,
+          description: 'This is a protected demo class.'
+        },
+        ...(demoCategory.classes || [])
+      ]
+      safeCategories[demoCategoryIndex] = demoCategory
+    }
+
+    return safeCategories
+  }
+
   loadProfile = async () => {
     try {
       const result = await getProfile()
-      if (result.success) {
-        const profile = result.data?.user || result.data || {}
-        this.setState({
-          profileData: {
-            username: profile.username || '',
-            fullName: profile.name || profile.fullName || '',
-            email: profile.email || '',
-            phoneNumber: profile.phoneNumber || ''
-          }
-        })
-      }
+      if (!result?.success) return
+
+      const profile = result.data?.user || result.data || {}
+      this.setState({
+        profileData: {
+          username: profile.username || '',
+          fullName: profile.fullName || profile.name || '',
+          email: profile.email || '',
+          phoneNumber: profile.phoneNumber || ''
+        }
+      })
     } catch (error) {
       console.error('Failed to load profile:', error)
     }
@@ -84,10 +154,11 @@ class ClassManagement extends Component {
     try {
       const result = await getCategories()
       if (result.success) {
-        this.setState({ categories: result.data })
+        this.setState({ categories: this.ensureDemoData(result.data) })
       }
     } catch (error) {
       console.error('Failed to fetch categories:', error)
+      toast.error('Failed to load categories')
     } finally {
       this.setState({ loading: false })
     }
@@ -101,7 +172,7 @@ class ClassManagement extends Component {
         const result = await createCategory(this.state.newCategoryName.trim())
         if (result.success) {
           toast.remove(loadingToast)
-          toast.success('Category created successfully')
+          toast.success('Category created')
           this.setState({
             categories: [...this.state.categories, result.data],
             newCategoryName: '',
@@ -120,16 +191,21 @@ class ClassManagement extends Component {
   }
 
   editCategory = async (catId, newName) => {
+    const category = this.state.categories.find(cat => String(cat.id) === String(catId))
+    if (this.isDemoCategory(category)) {
+      toast.error('This demo category cannot be edited.')
+      return
+    }
     const loadingToast = toast.loading('Updating category...')
     try {
       const result = await updateCategory(catId, newName)
       if (result.success) {
         toast.remove(loadingToast)
-        toast.success('Category updated successfully')
+        toast.success('Category updated')
         this.setState({
-          categories: this.state.categories.map(cat => (
-            cat.id === catId ? { ...cat, ...result.data, classes: cat.classes } : cat
-          ))
+          categories: this.state.categories.map(cat =>
+            cat.id === catId ? { ...cat, ...(result.data || {}) } : cat
+          )
         })
       } else {
         toast.remove(loadingToast)
@@ -143,12 +219,24 @@ class ClassManagement extends Component {
   }
 
   handleDeleteCategory = async (catId) => {
+    const category = this.state.categories.find(cat => String(cat.id) === String(catId))
+    if (this.isDemoCategory(category)) {
+      toast.error('This demo category cannot be deleted.')
+      return
+    }
+
+    const hasDemoClass = (category?.classes || []).some(this.isDemoClass)
+    if (hasDemoClass) {
+      toast.error('This category contains a protected demo class.')
+      return
+    }
+
     const loadingToast = toast.loading('Deleting category...')
     try {
       const result = await deleteCategory(catId)
       if (result.success) {
         toast.remove(loadingToast)
-        toast.success('Category deleted successfully')
+        toast.success('Category deleted')
         this.setState({
           categories: this.state.categories.filter(cat => cat.id !== catId)
         })
@@ -170,7 +258,7 @@ class ClassManagement extends Component {
       const result = await createClass(catId, name, description)
       if (result.success) {
         toast.remove(loadingToast)
-        toast.success('Class created successfully')
+        toast.success('Class created')
         this.setState({
           categories: this.state.categories.map(cat =>
             cat.id === catId
@@ -190,14 +278,19 @@ class ClassManagement extends Component {
   }
 
   editClass = async (catId, clsId, newName) => {
+    const category = this.state.categories.find(cat => String(cat.id) === String(catId))
+    const currentClass = category?.classes?.find(cls => String(cls.id) === String(clsId))
+    if (this.isDemoClass(currentClass)) {
+      toast.error('This demo class cannot be edited.')
+      return
+    }
     const loadingToast = toast.loading('Updating class...')
     try {
-      const currentCategory = this.state.categories.find(cat => cat.id === catId)
-      const currentClass = currentCategory?.classes?.find(cls => cls.id === clsId)
-      const result = await updateClass(catId, clsId, newName, currentClass?.description || '')
+      const classItem = category?.classes?.find(cls => cls.id === clsId)
+      const result = await updateClass(catId, clsId, newName, classItem?.description || '')
       if (result.success) {
         toast.remove(loadingToast)
-        toast.success('Class updated successfully')
+        toast.success('Class updated')
         this.setState({
           categories: this.state.categories.map(cat =>
             cat.id === catId
@@ -217,12 +310,19 @@ class ClassManagement extends Component {
   }
 
   handleDeleteClass = async (catId, clsId) => {
+    const category = this.state.categories.find(cat => String(cat.id) === String(catId))
+    const currentClass = category?.classes?.find(cls => String(cls.id) === String(clsId))
+    if (this.isDemoClass(currentClass)) {
+      toast.error('This demo class cannot be deleted.')
+      return
+    }
+
     const loadingToast = toast.loading('Deleting class...')
     try {
       const result = await deleteClass(catId, clsId)
       if (result.success) {
         toast.remove(loadingToast)
-        toast.success('Class deleted successfully')
+        toast.success('Class deleted')
         this.setState({
           categories: this.state.categories.map(cat =>
             cat.id === catId
@@ -243,6 +343,28 @@ class ClassManagement extends Component {
 
   // Confirm delete
   requestDelete = (type, catId, clsId, name) => {
+    if (type === 'category') {
+      const category = this.state.categories.find(cat => String(cat.id) === String(catId))
+      if (this.isDemoCategory(category)) {
+        toast.error('This demo category cannot be deleted.')
+        return
+      }
+      if ((category?.classes || []).some(this.isDemoClass)) {
+        toast.error('This category contains a protected demo class.')
+        return
+      }
+    }
+
+    if (type === 'class') {
+      const category = this.state.categories.find(cat => String(cat.id) === String(catId))
+      const cls = category?.classes?.find(item => String(item.id) === String(clsId))
+      const fallbackName = String(name || '').trim().toLowerCase()
+      if (this.isDemoClass(cls) || fallbackName === DEMO_CLASS_NAME.toLowerCase()) {
+        toast.error('This demo class cannot be deleted.')
+        return
+      }
+    }
+
     this.setState({
       confirmModal: {
         type, catId, clsId,
@@ -340,9 +462,7 @@ class ClassManagement extends Component {
 
     if (!this.dragItem.current) return
 
-    const { categoryId: sourceCatId, classId, index: sourceIndex } = this.dragItem.current
-    const sourceCategory = this.state.categories.find(cat => cat.id === sourceCatId)
-    const movedClass = sourceCategory?.classes?.[sourceIndex]
+    const { categoryId: sourceCatId, index: sourceIndex } = this.dragItem.current
     
     // Don't do anything if dropping on itself in same position
     if (sourceCatId === targetCatId && sourceIndex === targetIndex) {
@@ -385,13 +505,12 @@ class ClassManagement extends Component {
         const adjustedIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex
         await reorderClasses(targetCatId, sourceIndex, adjustedIndex)
       } else {
-        if (movedClass) {
-          await updateClass(targetCatId, classId, movedClass.name, movedClass.description || '')
-        }
+        // Move between categories - would need a different API endpoint
+        toast.info('Class moved locally')
       }
     } catch (error) {
       console.error('Failed to reorder classes:', error)
-      // Could revert optimistic update here
+      toast.error('Failed to reorder classes')
     }
 
     this.dragItem.current = null
@@ -413,14 +532,27 @@ class ClassManagement extends Component {
   handleLogout = () => {
     logout()
     if (this.props.onNavigate) {
-      this.props.onNavigate('/login')
+      this.props.onNavigate('/')
     }
   }
 
   // Profile dropdown handlers
   handleProfileToggle = (e) => {
     e.stopPropagation()
-    this.setState(prevState => ({ profileOpen: !prevState.profileOpen }))
+    this.setState(prevState => {
+      const nextOpen = !prevState.profileOpen
+      if (nextOpen) {
+        const hasProfileData =
+          Boolean(prevState.profileData.username) ||
+          Boolean(prevState.profileData.fullName) ||
+          Boolean(prevState.profileData.email) ||
+          Boolean(prevState.profileData.phoneNumber)
+        if (!hasProfileData) {
+          this.loadProfile()
+        }
+      }
+      return { profileOpen: nextOpen }
+    })
   }
 
   handleClickOutside = (e) => {
@@ -442,22 +574,23 @@ class ClassManagement extends Component {
     try {
       const result = await updateUserProfile(this.state.profileData)
       if (result.success) {
+        toast.success('Profile updated')
         // Update local state with the returned user data
         this.setState({
           profileData: {
             username: result.data.username || '',
-            fullName: result.data.fullName || result.data.name || '',
-            email: result.data.email || this.state.profileData.email || '',
+            fullName: result.data.name || '',
+            email: result.data.email || '',
             phoneNumber: result.data.phoneNumber || ''
           },
           profileEditMode: false
         })
       } else {
-        alert(result.error || 'Failed to update profile')
+        toast.error(result.error || 'Failed to update profile')
       }
     } catch (error) {
       console.error('Failed to update profile:', error)
-      alert('Failed to update profile. Please try again.')
+      toast.error('Failed to update profile')
     }
   }
 
@@ -511,18 +644,17 @@ class ClassManagement extends Component {
     try {
       const result = await resetPassword(
         this.state.resetPasswordData.currentPassword,
-        this.state.resetPasswordData.newPassword,
-        this.state.resetPasswordData.confirmPassword
+        this.state.resetPasswordData.newPassword
       )
       if (result.success) {
-        alert('Password reset successfully')
+        toast.success('Password reset successfully')
         this.handleResetPasswordCancel()
       } else {
-        alert(result.error || 'Failed to reset password')
+        toast.error(result.error || 'Failed to reset password')
       }
     } catch (error) {
       console.error('Failed to reset password:', error)
-      alert('Failed to reset password. Please try again.')
+      toast.error('Failed to reset password')
     }
   }
 
@@ -543,7 +675,7 @@ class ClassManagement extends Component {
         <div className="class-management">
           <div className="cm-loading">
             <div className="cm-spinner" aria-label="Loading" />
-            <div className="cm-loading-text">Loading categories...</div>
+            <div className="cm-loading-text">Loading Categories</div>
           </div>
         </div>
       )
@@ -607,13 +739,13 @@ class ClassManagement extends Component {
             <div className="cm-profile-dropdown">
               <div className="cm-profile-header">
               <button className="cm-profile-close-btn" onClick={() => this.setState({ profileOpen: false, profileEditMode: false })}>
-                <X size={16} />
+                <IconX size={16} />
               </button>
               <button className="cm-profile-edit-btn" onClick={this.handleProfileEdit}>
-                <PencilLine size={16} />
+                <IconEdit size={16} />
               </button>
               <div className="cm-profile-avatar">
-                <UserRound size={24} />
+                <IconUser size={24} />
               </div>
             </div>
             <div className="cm-profile-content">
@@ -667,7 +799,7 @@ class ClassManagement extends Component {
               </div>
               <div className="cm-profile-field">
                 <div className="cm-profile-value cm-profile-reset" onClick={this.handleResetPasswordClick}>
-                  Reset Password
+                  Change Password
                 </div>
               </div>
               {this.state.profileEditMode && (
@@ -678,7 +810,7 @@ class ClassManagement extends Component {
               )}
               <div className="cm-profile-footer">
                 <button className="cm-profile-logout-btn" onClick={this.handleLogout}>
-                  <LogOut size={16} />
+                  <IconLogout size={16} />
                   <span>Logout</span>
                 </button>
               </div>
@@ -692,9 +824,9 @@ class ClassManagement extends Component {
           <div className="modal-overlay" onClick={this.handleResetPasswordCancel}>
             <div className="modal reset-password-modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h3 className="modal-title">Reset Password</h3>
+                <h3 className="modal-title">Change Password</h3>
                 <button className="modal-close" onClick={this.handleResetPasswordCancel}>
-                  <X size={18} />
+                  <IconX size={18} />
                 </button>
               </div>
               <div className="modal-body">

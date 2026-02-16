@@ -1,8 +1,9 @@
 import React, { Component } from 'react'
 import './Auth.css'
-import { Mail, User, Lock, ArrowRight, X } from 'lucide-react'
+import { IconMail, IconUser, IconLock, IconArrowRight, IconX } from '../icons.jsx'
 import ThemeToggle from '../assets/ThemeToggle'
 import { login, signup } from '../../api/auth'
+import { toast } from '../../utils/toast'
 
 class Auth extends Component {
   constructor(props) {
@@ -22,11 +23,13 @@ class Auth extends Component {
 
   componentDidMount() {
     if (this.props.inline) {
+      // Prevent body scroll when Auth is open
       document.body.style.overflow = 'hidden'
     }
   }
 
   componentWillUnmount() {
+    // Restore body scroll when Auth is closed
     document.body.style.overflow = ''
   }
 
@@ -34,7 +37,8 @@ class Auth extends Component {
     if (prevProps.initialMode !== this.props.initialMode) {
       this.setState({ activeTab: this.props.initialMode || 'login' })
     }
-
+    
+    // Handle body scroll when inline prop changes
     if (this.props.inline && !prevProps.inline) {
       document.body.style.overflow = 'hidden'
     } else if (!this.props.inline && prevProps.inline) {
@@ -45,19 +49,24 @@ class Auth extends Component {
   handleLoginSubmit = async (e) => {
     e.preventDefault()
     this.setState({ error: '', loading: true })
-
+    const loadingToast = toast.loading('Logging in...')
+    
     try {
       const result = await login(this.state.loginEmail, this.state.loginPassword)
       if (result.success) {
+        toast.remove(loadingToast)
+        toast.success('Login successful')
         if (this.props.onLoginSuccess) {
           this.props.onLoginSuccess()
-        } else {
-          window.location.href = '/dashboard'
         }
       } else {
+        toast.remove(loadingToast)
+        toast.error(result.error || 'Login failed')
         this.setState({ error: result.error || 'Login failed' })
       }
-    } catch (err) {
+    } catch (error) {
+      toast.remove(loadingToast)
+      toast.error(error?.message || 'An error occurred. Please try again.')
       this.setState({ error: 'An error occurred. Please try again.' })
     } finally {
       this.setState({ loading: false })
@@ -67,36 +76,37 @@ class Auth extends Component {
   handleSignupSubmit = async (e) => {
     e.preventDefault()
     this.setState({ error: '' })
-
+    
+    // Validation
     if (this.state.signupPassword !== this.state.signupConfirmPassword) {
       this.setState({ error: 'Passwords do not match' })
       return
     }
-
+    
     if (this.state.signupPassword.length < 6) {
       this.setState({ error: 'Password must be at least 6 characters' })
       return
     }
-
+    
     this.setState({ loading: true })
-
+    const loadingToast = toast.loading('Creating account...')
+    
     try {
-      const result = await signup(
-        this.state.signupEmail,
-        this.state.signupUsername,
-        this.state.signupPassword,
-        this.state.signupConfirmPassword
-      )
+      const result = await signup(this.state.signupEmail, this.state.signupUsername, this.state.signupPassword)
       if (result.success) {
+        toast.remove(loadingToast)
+        toast.success('Account created')
         if (this.props.onLoginSuccess) {
           this.props.onLoginSuccess()
-        } else {
-          window.location.href = '/dashboard'
         }
       } else {
+        toast.remove(loadingToast)
+        toast.error(result.error || 'Signup failed')
         this.setState({ error: result.error || 'Signup failed' })
       }
-    } catch (err) {
+    } catch (error) {
+      toast.remove(loadingToast)
+      toast.error(error?.message || 'An error occurred. Please try again.')
       this.setState({ error: 'An error occurred. Please try again.' })
     } finally {
       this.setState({ loading: false })
@@ -119,7 +129,7 @@ class Auth extends Component {
         <div className="auth-container">
           {inline && onClose && (
             <button className="auth-close-btn" onClick={onClose}>
-              <X size={20} />
+              <IconX size={20} />
             </button>
           )}
 
@@ -140,26 +150,26 @@ class Auth extends Component {
             <div className="auth-card-glow"></div>
 
             <div className="auth-switcher">
-              <button
+              <button 
                 className={`auth-switcher-btn ${activeTab === 'login' ? 'active' : ''}`}
                 onClick={() => this.setState({ activeTab: 'login', error: '' })}
               >
                 Login
               </button>
-              <button
+              <button 
                 className={`auth-switcher-btn ${activeTab === 'signup' ? 'active' : ''}`}
                 onClick={() => this.setState({ activeTab: 'signup', error: '' })}
               >
                 Sign Up
               </button>
-              <div
+              <div 
                 className="auth-switcher-indicator"
                 style={{ transform: activeTab === 'login' ? 'translateX(0)' : 'translateX(100%)' }}
               ></div>
             </div>
 
             <div className="auth-form-container">
-              <div
+              <div 
                 className="auth-form-slider"
                 style={{ transform: activeTab === 'login' ? 'translateX(0)' : 'translateX(-50%)' }}
               >
@@ -169,7 +179,7 @@ class Auth extends Component {
                   {error && <div className="auth-error">{error}</div>}
                   <form className="auth-form" onSubmit={this.handleLoginSubmit}>
                     <div className="auth-input-group">
-                      <div className="auth-input-icon"><Mail size={18} /></div>
+                      <div className="auth-input-icon"><IconMail /></div>
                       <input
                         type="email"
                         placeholder="Email"
@@ -181,7 +191,7 @@ class Auth extends Component {
                       />
                     </div>
                     <div className="auth-input-group">
-                      <div className="auth-input-icon"><Lock size={18} /></div>
+                      <div className="auth-input-icon"><IconLock /></div>
                       <input
                         type="password"
                         placeholder="Password"
@@ -194,8 +204,11 @@ class Auth extends Component {
                     </div>
                     <button type="submit" className="auth-submit-btn" disabled={loading}>
                       <span>{loading ? 'Logging in...' : 'Log In'}</span>
-                      {!loading && <ArrowRight size={18} />}
+                      {!loading && <IconArrowRight />}
                     </button>
+                    <div className="auth-demo-info">
+                      <small>Demo: teacher@edunova.com / password123</small>
+                    </div>
                   </form>
                 </div>
 
@@ -205,7 +218,7 @@ class Auth extends Component {
                   {error && <div className="auth-error">{error}</div>}
                   <form className="auth-form" onSubmit={this.handleSignupSubmit}>
                     <div className="auth-input-group">
-                      <div className="auth-input-icon"><Mail size={18} /></div>
+                      <div className="auth-input-icon"><IconMail /></div>
                       <input
                         type="email"
                         placeholder="Email"
@@ -217,7 +230,7 @@ class Auth extends Component {
                       />
                     </div>
                     <div className="auth-input-group">
-                      <div className="auth-input-icon"><User size={18} /></div>
+                      <div className="auth-input-icon"><IconUser /></div>
                       <input
                         type="text"
                         placeholder="Username"
@@ -229,7 +242,7 @@ class Auth extends Component {
                       />
                     </div>
                     <div className="auth-input-group">
-                      <div className="auth-input-icon"><Lock size={18} /></div>
+                      <div className="auth-input-icon"><IconLock /></div>
                       <input
                         type="password"
                         placeholder="Password"
@@ -242,7 +255,7 @@ class Auth extends Component {
                       />
                     </div>
                     <div className="auth-input-group">
-                      <div className="auth-input-icon"><Lock size={18} /></div>
+                      <div className="auth-input-icon"><IconLock /></div>
                       <input
                         type="password"
                         placeholder="Confirm Password"
@@ -255,7 +268,7 @@ class Auth extends Component {
                     </div>
                     <button type="submit" className="auth-submit-btn" disabled={loading}>
                       <span>{loading ? 'Creating account...' : 'Sign Up'}</span>
-                      {!loading && <ArrowRight size={18} />}
+                      {!loading && <IconArrowRight />}
                     </button>
                   </form>
                 </div>

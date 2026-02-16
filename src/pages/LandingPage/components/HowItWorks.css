@@ -3,10 +3,20 @@
    =========================== */
 
 .how-section {
-  padding: 100px 24px;
+  min-height: 100vh;
+  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(24px, 4vh, 64px) clamp(12px, 3vw, 32px);
+  padding-left: max(clamp(12px, 3vw, 32px), env(safe-area-inset-left, 0));
+  padding-right: max(clamp(12px, 3vw, 32px), env(safe-area-inset-right, 0));
   position: relative;
   background: var(--color-black);
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .how-background {
@@ -20,21 +30,23 @@
   position: absolute;
   inset: 0;
   background-image: linear-gradient(color-mix(in srgb, var(--color-white) 3%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--color-white) 3%, transparent) 1px, transparent 1px);
-  background-size: 60px 60px;
+  background-size: clamp(32px, 2rem + 0.8vw, 72px) clamp(32px, 2rem + 0.8vw, 72px);
   mask-image: radial-gradient(ellipse at center, var(--color-fullblack) 0%, transparent 70%);
   -webkit-mask-image: radial-gradient(ellipse at center, var(--color-fullblack) 0%, transparent 70%);
 }
 
 .how-container {
-  max-width: 800px;
+  max-width: min(800px, 100% - 2 * clamp(12px, 3vw, 48px));
   margin: 0 auto;
   position: relative;
   z-index: 10;
+  width: 100%;
+  min-width: 0;
 }
 
 .how-header {
   text-align: center;
-  margin-bottom: 80px;
+  margin-bottom: clamp(24px, 3.5vh, 56px);
   opacity: 0;
   transform: translateY(30px);
   transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
@@ -46,10 +58,10 @@
 }
 
 .how-title {
-  font-size: clamp(2rem, 5vw, 3rem);
+  font-size: clamp(1.35rem, 1rem + 1.1vw, 3.25rem);
   font-weight: 700;
   color: var(--color-lightgray);
-  line-height: 1.2;
+  line-height: 1.25;
 }
 
 .how-title .highlight { color: var(--color-neon); }
@@ -57,17 +69,17 @@
 .steps-container {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: clamp(20px, 2.2vw, 40px);
 }
 
 .step-card {
   display: flex;
   align-items: flex-start;
-  gap: 24px;
-  padding: 28px 32px;
+  gap: clamp(24px, 2.2vw, 44px);
+  padding: clamp(24px, 1.6rem + 0.6vw, 42px) clamp(28px, 1.6rem + 0.75vw, 52px);
   background: linear-gradient(135deg, color-mix(in srgb, var(--color-white) 3%, transparent), color-mix(in srgb, var(--color-white) 1%, transparent));
   border: 1px solid color-mix(in srgb, var(--color-white) 6%, transparent);
-  border-radius: 18px;
+  border-radius: clamp(14px, 1rem + 0.35vw, 26px);
   position: relative;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -95,20 +107,20 @@
 
 .step-number {
   flex-shrink: 0;
-  width: 56px;
-  height: 56px;
+  width: clamp(52px, 3rem + 0.8vw, 88px);
+  height: clamp(52px, 3rem + 0.8vw, 88px);
   display: flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, color-mix(in srgb, var(--color-neon) 20%, transparent), color-mix(in srgb, var(--color-neon) 5%, transparent));
   border: 1px solid color-mix(in srgb, var(--color-neon) 30%, transparent);
-  border-radius: 14px;
+  border-radius: clamp(14px, 0.9rem + 0.35vw, 24px);
   transition: all 0.3s ease;
 }
 
 .step-number span {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 1.25rem;
+  font-size: clamp(1.25rem, 0.95rem + 0.5vw, 1.85rem);
   font-weight: 700;
   color: var(--color-neon);
 }
@@ -120,26 +132,65 @@
 
 .step-content {
   flex: 1;
-  padding-top: 4px;
+  padding-top: 6px;
+  min-width: 0;
 }
 
 .step-title {
-  font-size: 1.15rem;
+  font-size: clamp(1.2rem, 0.95rem + 0.5vw, 1.75rem);
   font-weight: 600;
   color: var(--color-white);
-  margin-bottom: 8px;
+  margin-bottom: clamp(8px, 0.8vh, 18px);
 }
 
 .step-description {
-  font-size: 0.95rem;
+  font-size: clamp(0.95rem, 0.8rem + 0.45vw, 1.4rem);
   color: var(--color-lightgray);
   line-height: 1.5;
 }
 
+/* Laptop and larger: bigger step content */
+@media (min-width: 1024px) {
+  .how-header { margin-bottom: 44px; }
+  .how-title { font-size: 2.75rem; }
+  .step-number { width: 80px; height: 80px; }
+  .step-number span { font-size: 1.75rem; }
+  .step-title { font-size: 1.65rem; }
+  .step-description { font-size: 1.25rem; }
+  .step-card { padding: 34px 46px; gap: 32px; }
+  .steps-container { gap: 28px; }
+}
+
+@media (max-height: 700px) {
+  .how-section { padding: clamp(16px, 3vh, 32px) clamp(12px, 3vw, 24px); }
+  .how-header { margin-bottom: clamp(8px, 1.5vh, 20px); }
+  .how-title { font-size: clamp(0.9rem, 2vw + 0.3rem, 1.4rem); }
+  .steps-container { gap: 8px; }
+  .step-card { padding: 10px 14px; gap: 12px; }
+  .step-number { width: 32px; height: 32px; }
+  .step-number span { font-size: 0.8rem; }
+  .step-title { font-size: 0.85rem; }
+  .step-description { font-size: 0.7rem; }
+}
+
 @media (max-width: 600px) {
-  .how-section { padding: 60px 20px; }
-  .how-header { margin-bottom: 50px; }
-  .step-card { flex-direction: column; gap: 16px; padding: 24px 20px; text-align: center; }
-  .step-number { margin: 0 auto; }
+  .how-section { height: auto; min-height: 100vh; min-height: 100dvh; padding: clamp(20px, 3vh, 36px) clamp(10px, 2.5vw, 18px); }
+  .how-header { margin-bottom: clamp(12px, 2vh, 20px); }
+  .how-title { font-size: clamp(0.9rem, 3.5vw, 1.2rem); }
+  .step-card { flex-direction: column; gap: clamp(6px, 1vw, 10px); padding: clamp(8px, 1.5vw, 12px) clamp(10px, 2vw, 14px); text-align: center; }
+  .step-number { margin: 0 auto; width: clamp(28px, 7vw, 34px); height: clamp(28px, 7vw, 34px); }
+  .step-number span { font-size: clamp(0.75rem, 1.8vw, 0.85rem); }
   .step-card:hover { transform: translateY(-4px) translateX(0); }
+}
+
+@media (max-width: 480px) {
+  .step-title { font-size: 0.8rem; }
+  .step-description { font-size: 0.7rem; }
+}
+
+@media (max-width: 360px) {
+  .how-section { padding: 16px 10px; }
+  .how-title { font-size: 0.85rem; }
+  .step-number { width: 26px; height: 26px; }
+  .step-number span { font-size: 0.7rem; }
 }

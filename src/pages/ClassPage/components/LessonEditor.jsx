@@ -1,67 +1,128 @@
 import React, { Component } from 'react'
-import { Plus, Settings, Trash2, GripVertical, Check, X, Star, ArrowRight, MoveVertical } from 'lucide-react'
-import { getLessonContent, updateLessonContent, updateItemStyle, createLessonMedia, updateLessonMedia } from '../../../api/lessons'
-import apiClient from '../../../services/api-Client'
+import { IconPlus, IconSettings, IconTrash, IconGrip, IconCheck, IconX, IconStar, IconArrowRight, IconResize, IconAttachment, IconFile, IconListDisc, IconTable, IconType, IconAiChat } from '../../icons.jsx'
+import { getLessonContent, updateLessonContent, updateItemStyle } from '../../../api/lessons'
+import { toast } from '../../../utils/toast'
 import './LessonEditor.css'
+import cpModalStyles from '../ClassPage.module.css'
 
 const ITEM_CATEGORIES = [
   {
     label: 'Text Blocks',
     items: [
-      'Title', 'Heading', 'Subheading', 'Paragraph', 'Explanation', 'Definition',
-      'Example', 'KeyPoint', 'Quote', 'Note', 'Warning', 'Tip', 'Empty Space'
+      'Paragraph', 'Title', 'Heading', 'Subheading', 'Explanation', 'Definition',
+      'Example', 'KeyPoint', 'Quote', 'Note', 'Warning', 'Tip'
     ]
   },
   {
     label: 'Lists & Structure',
-    items: ['List', 'OrderedList', 'Table']
+    items: ['List', 'Table']
+  },
+  {
+    label: 'Media',
+    items: ['MediaAttachment']
   },
   {
     label: 'Learning & Assessment',
     items: ['Exercise', 'Question', 'Quiz']
-  },
-  {
-    label: 'Media Items',
-    items: ['Image', 'Audio', 'Video', 'Embed / Attachment']
   }
 ]
+
+// Flat list of all item types (for picker list and search)
+const ALL_ITEMS = ITEM_CATEGORIES.reduce((acc, cat) => acc.concat(cat.items), [])
+
+// Icon per item type for picker cards
+const ITEM_ICONS = {
+  Title: IconType,
+  Heading: IconType,
+  Subheading: IconType,
+  Paragraph: IconFile,
+  Explanation: IconFile,
+  Definition: IconFile,
+  Example: IconFile,
+  KeyPoint: IconStar,
+  Quote: IconFile,
+  Note: IconFile,
+  Warning: IconFile,
+  Tip: IconFile,
+  List: IconListDisc,
+  Table: IconTable,
+  MediaAttachment: IconAttachment,
+  Exercise: IconStar,
+  Question: IconFile,
+  Quiz: IconStar
+}
+
+// Media type detection: extensions and MIME for images, video, audio
+const MEDIA_IMAGE_EXT = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'bmp', 'avif']
+const MEDIA_VIDEO_EXT = ['mp4', 'webm', 'ogg', 'mov', 'm4v']
+const MEDIA_AUDIO_EXT = ['mp3', 'wav', 'ogg', 'aac', 'm4a']
+const MEDIA_IMAGE_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml', 'image/bmp', 'image/avif']
+const MEDIA_VIDEO_MIME = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-m4v']
+const MEDIA_AUDIO_MIME = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/aac', 'audio/x-m4a', 'audio/mp4']
+const MAX_MEDIA_UPLOAD_BYTES = 10 * 1024 * 1024 // 10MB
 
 
 class LessonEditor extends Component {
   constructor(props) {
     super(props)
     this.state = {
-      pages: [this.createPage()],
+      pages: [this.createFirstPage()],
+      lessonLoading: false,
       openPageSettingsId: null,
       itemPicker: null,
       itemSearch: '',
       activeItemId: null,
+      focusItemId: null,
       confirmModal: null,
       dragOverItemId: null,
       aiChatOpen: false,
       aiContext: null,
       isDragging: false,
+      quizSelections: {} // itemId -> selected option text (view mode)
     }
     this.dragItem = null
     this.textInputTimeout = null
     this.saveTimeout = null
     this.contentEditableRefs = {}
     this.listItemInputRefs = {}
+    this.addItemInputRef = null
+    this.lessonEditorRef = React.createRef()
+    this.lastEnterTime = 0
+    this.DOUBLE_ENTER_MS = 400
+    this.lastSaveErrorAt = 0
   }
 
   componentDidMount() {
     if (this.props.lessonId && this.props.classId) {
       this.loadLessonContent()
     }
+    document.addEventListener('keydown', this.handleEditorKeyDown)
+  }
+
+  componentWillUnmount() {
+    document.removeEventListener('keydown', this.handleEditorKeyDown)
+    if (this.focusAddItemInputTimeout) clearTimeout(this.focusAddItemInputTimeout)
+    if (this.focusItemTimeout) clearTimeout(this.focusItemTimeout)
+    // Save when unmounting in edit mode (e.g. toggling to view mode via key remount)
+    if (this.props.editMode && this.props.lessonId && this.props.classId) {
+      const apiContent = this.convertInternalToApi(this.state.pages)
+      updateLessonContent(this.props.classId, this.props.lessonId, apiContent).catch(() => {})
+    }
   }
 
   componentDidUpdate(prevProps, prevState) {
+    const exitingEditMode = prevProps.editMode && !this.props.editMode
+    if (exitingEditMode || prevProps.editMode !== this.props.editMode) {
+    }
     if (prevProps.lessonId !== this.props.lessonId || prevProps.classId !== this.props.classId) {
       if (this.props.lessonId && this.props.classId) {
         this.loadLessonContent()
       } else {
         this.resetLesson()
       }
+    }
+    if (this.props.blackboardOpen && !prevProps.blackboardOpen) {
+      this.setState({ itemPicker: null, activeItemId: null })
     }
     if (prevProps.editMode && !this.props.editMode) {
       this.setState({ activeItemId: null, itemPicker: null })
@@ -70,8 +131,51 @@ class LessonEditor extends Component {
         this.saveLessonContent()
       }
     }
+    // Focus add-item input when picker opens (e.g. after clicking plus or "+ Column")
+    if (this.state.itemPicker && !prevState.itemPicker) {
+      this.focusAddItemInputTimeout = setTimeout(() => {
+        if (this.addItemInputRef) {
+          this.addItemInputRef.focus()
+          this.addItemInputRef.select()
+        }
+        this.focusAddItemInputTimeout = null
+      }, 0)
+    }
+
+    // After adding an item, focus its content so user can type instantly
+    if (this.state.focusItemId) {
+      const itemId = this.state.focusItemId
+      this.focusItemTimeout = setTimeout(() => {
+        const el = this.contentEditableRefs[itemId]
+        if (el) {
+          el.focus()
+          el.textContent = el.textContent || ''
+          const range = document.createRange()
+          range.selectNodeContents(el)
+          range.collapse(false)
+          const sel = window.getSelection()
+          sel.removeAllRanges()
+          sel.addRange(range)
+        }
+        this.setState({ focusItemId: null })
+        this.focusItemTimeout = null
+      }, 0)
+    }
+
+    // When exiting edit mode, skip contentEditable sync to avoid DOM/React mismatch (removeChild)
+    if (exitingEditMode) {
+      this.contentEditableRefs = {}
+      return
+    }
     
     // Update contentEditable elements when state changes, but only if not focused
+    const refKeys = Object.keys(this.contentEditableRefs)
+    if (refKeys.length && exitingEditMode) {
+      const refStatus = refKeys.map(itemId => {
+        const el = this.contentEditableRefs[itemId]
+        return { itemId, isConnected: el ? el.isConnected : false, hasParent: el ? !!el.parentNode : false }
+      })
+    }
     Object.keys(this.contentEditableRefs).forEach(itemId => {
       const el = this.contentEditableRefs[itemId]
       if (!el) return
@@ -87,6 +191,8 @@ class LessonEditor extends Component {
         const currentText = el.textContent || ''
         const newText = item.content || ''
         if (currentText !== newText) {
+          if (exitingEditMode) {
+          }
           el.textContent = newText
         }
       }
@@ -95,7 +201,7 @@ class LessonEditor extends Component {
 
   resetLesson = () => {
     this.setState({
-      pages: [this.createPage()],
+      pages: [this.createFirstPage()],
       openPageSettingsId: null,
       itemPicker: null,
       itemSearch: '',
@@ -107,6 +213,19 @@ class LessonEditor extends Component {
     })
   }
 
+  getErrorMessage = (error, fallback) => {
+    if (error?.message) return error.message
+    if (error?.error) return error.error
+    return fallback
+  }
+
+  notifySaveError = (message) => {
+    const now = Date.now()
+    if (now - this.lastSaveErrorAt < 3000) return
+    this.lastSaveErrorAt = now
+    toast.error(message)
+  }
+
   generateId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
   createPage = () => ({
@@ -115,11 +234,16 @@ class LessonEditor extends Component {
     items: []
   })
 
+  createFirstPage = () => ({
+    ...this.createPage(),
+    items: [this.createItem('Title')]
+  })
+
   createItem = (type, rowId = null) => {
     // Check if this is a Text Block, Lists & Structure, or Learning & Assessment item
     const textBlocks = ['Title', 'Heading', 'Subheading', 'Paragraph', 'Explanation', 'Definition',
-      'Example', 'KeyPoint', 'Quote', 'Note', 'Warning', 'Tip', 'Empty Space', 'Exercise']
-    const listsStructure = ['List', 'OrderedList', 'Table']
+      'Example', 'KeyPoint', 'Quote', 'Note', 'Warning', 'Tip', 'Exercise']
+    const listsStructure = ['List', 'Table']
     const learningAssessment = ['Question', 'Quiz']
     
     const isStyledItem = textBlocks.includes(type) || listsStructure.includes(type) || learningAssessment.includes(type)
@@ -132,7 +256,7 @@ class LessonEditor extends Component {
       style: isStyledItem ? {
         fontSize: '16px',
         textColor: null,
-        backgroundColor: null,
+        backgroundColor: '#151515',
         borderColor: null
       } : {
         fontSize: '',
@@ -142,13 +266,10 @@ class LessonEditor extends Component {
       }
     }
 
-    if (type === 'Empty Space') {
-      return { ...base, height: 50 } // Default height for empty space
-    }
-
     if (type === 'Table') {
       return {
         ...base,
+        description: '',
         table: {
           rows: 2,
           cols: 2,
@@ -166,15 +287,22 @@ class LessonEditor extends Component {
     }
 
     if (type === 'Quiz') {
-      return { ...base, question: '', options: [], draftOption: '' }
+      return { ...base, question: '', options: [], correctAnswer: '', draftOption: '' }
     }
 
-    if (type === 'List' || type === 'OrderedList') {
-      return { ...base, description: '', items: [''] }
+    if (type === 'List') {
+      return { ...base, description: '', items: [''], listType: 'disc' }
     }
 
-    if (['Image', 'Audio', 'Video', 'Embed / Attachment'].includes(type)) {
-      return { ...base, fileName: '', link: '', file: null, mediaId: null, previewUrl: null }
+    if (type === 'MediaAttachment') {
+      return {
+        id: base.id,
+        type: 'MediaAttachment',
+        rowId: base.rowId,
+        height: null,
+        style: null,
+        text: { file: null, url: '' }
+      }
     }
 
     return { ...base, content: '' }
@@ -182,8 +310,8 @@ class LessonEditor extends Component {
 
   // Convert API format (flat content with index/columnIndex) to internal format (pages with rowId)
   convertApiToInternal = (apiContent) => {
-    if (!apiContent || !Array.isArray(apiContent)) {
-      return [this.createPage()]
+    if (!apiContent || !Array.isArray(apiContent) || apiContent.length === 0) {
+      return [this.createFirstPage()]
     }
 
     const pages = [this.createPage()]
@@ -213,18 +341,11 @@ class LessonEditor extends Component {
       // Convert API item to internal format
       // Check if this is a Text Block, Lists & Structure, or Learning & Assessment item
       const textBlocks = ['Title', 'Heading', 'Subheading', 'Paragraph', 'Explanation', 'Definition',
-        'Example', 'KeyPoint', 'Quote', 'Note', 'Warning', 'Tip', 'Empty Space', 'Exercise']
-      const listsStructure = ['List', 'OrderedList', 'Table']
+        'Example', 'KeyPoint', 'Quote', 'Note', 'Warning', 'Tip', 'Exercise']
+      const listsStructure = ['List', 'Table']
       const learningAssessment = ['Question', 'Quiz']
       const isStyledItem = textBlocks.includes(apiItem.type) || listsStructure.includes(apiItem.type) || learningAssessment.includes(apiItem.type)
       
-      const normalizeBackground = (value) => {
-        if (!value) return null
-        const normalized = String(value).toLowerCase()
-        if (normalized === '#151515' || normalized === '#f7f7f7') return null
-        return value
-      }
-
       const internalItem = {
         id: this.generateId('item'),
         type: apiItem.type,
@@ -233,7 +354,7 @@ class LessonEditor extends Component {
         style: isStyledItem ? {
           fontSize: apiItem.style?.fontSize || '16px',
           textColor: apiItem.style?.color !== undefined ? apiItem.style.color : null,
-          backgroundColor: normalizeBackground(apiItem.style?.backgroundColor),
+          backgroundColor: apiItem.style?.backgroundColor || '#151515',
           borderColor: apiItem.style?.borderColor !== undefined ? apiItem.style.borderColor : null
         } : {
           fontSize: apiItem.style?.fontSize || '',
@@ -245,6 +366,7 @@ class LessonEditor extends Component {
 
       // Handle different item types
       if (apiItem.type === 'Table' && apiItem.text?.columns && apiItem.text?.rows) {
+        internalItem.description = apiItem.text.description ?? apiItem['table description'] ?? ''
         internalItem.table = {
           rows: apiItem.text.rows.length,
           cols: apiItem.text.columns.length,
@@ -258,27 +380,24 @@ class LessonEditor extends Component {
       } else if (apiItem.type === 'Quiz' && apiItem.text) {
         internalItem.question = apiItem.text.question || ''
         internalItem.options = apiItem.text.options || []
+        internalItem.correctAnswer = apiItem.text.correctAnswer || ''
         internalItem.draftOption = ''
-      } else if ((apiItem.type === 'List' || apiItem.type === 'OrderedList') && Array.isArray(apiItem.text)) {
+      } else if (apiItem.type === 'List' && Array.isArray(apiItem.text)) {
         internalItem.description = apiItem['list description'] || ''
         internalItem.items = [...apiItem.text]
-      } else if (['Image', 'Audio', 'Video', 'Embed / Attachment'].includes(apiItem.type) && apiItem.text) {
-        if (apiItem.type === 'Image') {
-          internalItem.fileName = apiItem.text.src || ''
-          internalItem.link = apiItem.text.caption || ''
-          internalItem.mediaId = apiItem.text.mediaId || null
-        } else if (apiItem.type === 'Embed / Attachment') {
-          internalItem.fileName = ''
-          internalItem.link = apiItem.text.url || ''
-          internalItem.mediaId = apiItem.text.mediaId || null
-        } else {
-          internalItem.fileName = ''
-          internalItem.link = apiItem.text.src || ''
-          internalItem.mediaId = apiItem.text.mediaId || null
+        internalItem.listType = apiItem.listType || 'disc'
+      } else if (apiItem.type === 'OrderedList' && Array.isArray(apiItem.text)) {
+        // Legacy: convert old OrderedList to List with listType 123
+        internalItem.type = 'List'
+        internalItem.description = apiItem['list description'] || ''
+        internalItem.items = [...apiItem.text]
+        internalItem.listType = apiItem.listType || '123'
+      } else if (apiItem.type === 'MediaAttachment') {
+        internalItem.style = null
+        internalItem.text = {
+          file: null,
+          url: apiItem.text?.url ?? ''
         }
-      } else if (apiItem.type === 'Empty Space') {
-        // Empty Space doesn't have content
-        internalItem.height = apiItem.height || 50
       } else {
         internalItem.content = apiItem.text || apiItem.content || ''
       }
@@ -312,8 +431,8 @@ class LessonEditor extends Component {
         rowItems.forEach((item, colIndex) => {
           // Check if this is a Text Block, Lists & Structure, or Learning & Assessment item
           const textBlocks = ['Title', 'Heading', 'Subheading', 'Paragraph', 'Explanation', 'Definition',
-            'Example', 'KeyPoint', 'Quote', 'Note', 'Warning', 'Tip', 'Empty Space', 'Exercise']
-          const listsStructure = ['List', 'OrderedList', 'Table']
+            'Example', 'KeyPoint', 'Quote', 'Note', 'Warning', 'Tip', 'Exercise']
+          const listsStructure = ['List', 'Table']
           const learningAssessment = ['Question', 'Quiz']
           const isStyledItem = textBlocks.includes(item.type) || listsStructure.includes(item.type) || learningAssessment.includes(item.type)
           
@@ -324,7 +443,7 @@ class LessonEditor extends Component {
             style: isStyledItem ? {
               fontSize: item.style?.fontSize || '16px',
               color: item.style?.textColor !== null && item.style?.textColor !== '' ? item.style.textColor : null,
-              backgroundColor: item.style?.backgroundColor ?? null,
+              backgroundColor: item.style?.backgroundColor || '#151515',
               borderColor: item.style?.borderColor !== null && item.style?.borderColor !== '' ? item.style.borderColor : null
             } : {
               fontSize: item.style?.fontSize || '',
@@ -337,6 +456,7 @@ class LessonEditor extends Component {
           // Convert item content based on type
           if (item.type === 'Table' && item.table) {
             apiItem.text = {
+              description: item.description ?? '',
               columns: Array.from({ length: item.table.cols }, (_, i) => `Column ${i + 1}`),
               rows: item.table.cells
             }
@@ -347,30 +467,19 @@ class LessonEditor extends Component {
             apiItem.text = {
               question: item.question || '',
               options: item.options || [],
-              correctAnswer: item.options?.[0] || ''
+              correctAnswer: item.correctAnswer ?? (item.options?.[0] || '')
             }
-          } else if (item.type === 'List' || item.type === 'OrderedList') {
+          } else if (item.type === 'List') {
+            apiItem.type = 'List'
+            apiItem.listType = item.listType || 'disc'
             apiItem['list description'] = item.description || null
             apiItem.text = item.items || []
-          } else if (item.type === 'Image') {
+          } else if (item.type === 'MediaAttachment') {
+            apiItem.style = null
             apiItem.text = {
-              src: item.fileName || '',
-              caption: item.link || '',
-              mediaId: item.mediaId || null
+              file: null,
+              url: item.text?.url ?? ''
             }
-          } else if (item.type === 'Embed / Attachment') {
-            apiItem.text = {
-              url: item.link || '',
-              mediaId: item.mediaId || null
-            }
-          } else if (['Audio', 'Video'].includes(item.type)) {
-            apiItem.text = {
-              src: item.link || '',
-              mediaId: item.mediaId || null
-            }
-          } else if (item.type === 'Empty Space') {
-            // Empty Space doesn't need text content
-            apiItem.text = null
           } else {
             apiItem.text = item.content || ''
           }
@@ -389,15 +498,21 @@ class LessonEditor extends Component {
   // Load lesson content from API
   loadLessonContent = async () => {
     if (!this.props.classId || !this.props.lessonId) return
+    this.setState({ lessonLoading: true })
 
     try {
       const result = await getLessonContent(this.props.classId, this.props.lessonId)
       if (result.success && result.data) {
         const pages = this.convertApiToInternal(result.data.content || [])
         this.setState({ pages })
+      } else {
+        toast.error('Failed to load lesson content')
       }
     } catch (error) {
       console.error('Failed to load lesson content:', error)
+      toast.error(this.getErrorMessage(error, 'Failed to load lesson content'))
+    } finally {
+      this.setState({ lessonLoading: false })
     }
   }
 
@@ -406,85 +521,14 @@ class LessonEditor extends Component {
     if (!this.props.classId || !this.props.lessonId) return
 
     try {
-      const fileMap = new Map()
-      this.state.pages.forEach(page => {
-        page.items.forEach(item => {
-          if (item.file || item.previewUrl) {
-            fileMap.set(item.id, { file: item.file, previewUrl: item.previewUrl })
-          }
-        })
-      })
-
-      const pages = this.clonePages(this.state.pages)
-      pages.forEach(page => {
-        page.items.forEach(item => {
-          const saved = fileMap.get(item.id)
-          if (saved) {
-            item.file = saved.file || null
-            item.previewUrl = saved.previewUrl || null
-          }
-        })
-      })
-
-      await this.syncMediaItems(pages)
-      const apiContent = this.convertInternalToApi(pages)
-      await updateLessonContent(this.props.classId, this.props.lessonId, apiContent)
-      this.setState({ pages })
+      const apiContent = this.convertInternalToApi(this.state.pages)
+      const result = await updateLessonContent(this.props.classId, this.props.lessonId, apiContent)
+      if (!result?.success) {
+        this.notifySaveError('Failed to save lesson content')
+      }
     } catch (error) {
       console.error('Failed to save lesson content:', error)
-    }
-  }
-
-  syncMediaItems = async (pages) => {
-    const lessonId = this.props.lessonId
-
-    const getMediaType = (itemType) => {
-      if (itemType === 'Image') return 'image'
-      if (itemType === 'Video') return 'video'
-      if (itemType === 'Audio') return 'audio'
-      return 'link'
-    }
-
-    const items = []
-    pages.forEach(page => {
-      page.items.forEach(item => {
-        if (['Image', 'Audio', 'Video', 'Embed / Attachment'].includes(item.type)) {
-          items.push(item)
-        }
-      })
-    })
-
-    for (const item of items) {
-      const type = getMediaType(item.type)
-      if (item.file) {
-        const result = item.mediaId
-          ? await updateLessonMedia(lessonId, item.mediaId, { file: item.file, type })
-          : await createLessonMedia(lessonId, { file: item.file, type })
-
-        const payload = result?.data
-        const media = Array.isArray(payload) ? payload[0] : payload
-        if (media?.url) {
-          item.link = media.url
-        }
-        if (media?.id) {
-          item.mediaId = media.id
-        }
-        if (item.previewUrl) {
-          URL.revokeObjectURL(item.previewUrl)
-        }
-        item.previewUrl = null
-        item.file = null
-        if (media?.originalName) {
-          item.fileName = media.originalName
-        }
-      } else if (item.link && !item.mediaId) {
-        const result = await createLessonMedia(lessonId, { url: item.link, type })
-        const payload = result?.data
-        const media = Array.isArray(payload) ? payload[0] : payload
-        if (media?.id) {
-          item.mediaId = media.id
-        }
-      }
+      this.notifySaveError(this.getErrorMessage(error, 'Failed to save lesson content'))
     }
   }
 
@@ -598,11 +642,76 @@ class LessonEditor extends Component {
     })
   }
 
-  handleOpenItemPicker = (context, index) => {
+  getFilteredItems = () => {
+    const query = (this.state.itemSearch || '').trim().toLowerCase()
+    if (!query) return ALL_ITEMS
+    return ALL_ITEMS.filter(item => item.toLowerCase().includes(query))
+  }
+
+  handleOpenItemPicker = (context, index, sourceItemId = null) => {
     this.setState({
-      itemPicker: { ...context, index },
+      itemPicker: { ...context, index, sourceItemId: sourceItemId || undefined },
       itemSearch: ''
     })
+  }
+
+  handleEditorKeyDown = (e) => {
+    if (!this.props.editMode || this.state.confirmModal) return
+    const root = this.lessonEditorRef.current
+    if (!root || !root.contains(e.target)) return
+    if (e.target.closest('.le-add-item-input') || e.target.closest('.le-item-picker-dropdown') || e.target.closest('.le-item-picker-outer')) return
+
+    const { pages, activeItemId } = this.state
+
+    if (e.key === 'Enter') {
+      if (e.altKey) {
+        e.preventDefault()
+        if (activeItemId) {
+          const location = this.findItemLocation(pages, activeItemId)
+          if (location) {
+            const items = this.getContainerItemsByLocation(pages, location)
+            const item = items[location.index]
+            const rowId = item.rowId
+            const rowItems = items.filter(i => i.rowId === rowId)
+            if (rowItems.length > 0) {
+              const lastInRow = rowItems[rowItems.length - 1]
+              this.handleAddColumnItem(lastInRow.id, rowId)
+            }
+          }
+        }
+        return
+      }
+      if (e.ctrlKey) {
+        e.preventDefault()
+        if (activeItemId) {
+          const location = this.findItemLocation(pages, activeItemId)
+          if (location) {
+            const pageIndex = pages.findIndex(p => p.id === location.pageId)
+            if (pageIndex !== -1) this.handleAddPageAt(pageIndex + 1)
+          }
+        } else {
+          this.handleAddPageAt(0)
+        }
+        return
+      }
+      const now = Date.now()
+      if (now - this.lastEnterTime < this.DOUBLE_ENTER_MS) {
+        e.preventDefault()
+        this.lastEnterTime = 0
+        if (activeItemId) {
+          const location = this.findItemLocation(pages, activeItemId)
+          if (location) {
+            const context = { pageId: location.pageId, columnItemId: null, columnId: null }
+            this.handleOpenItemPicker(context, location.index + 1)
+          }
+        } else {
+          const firstPage = pages[0]
+          if (firstPage) this.handleOpenItemPicker({ pageId: firstPage.id, columnItemId: null, columnId: null }, 0)
+        }
+        return
+      }
+      this.lastEnterTime = now
+    }
   }
 
   handleAddItem = (type) => {
@@ -638,7 +747,9 @@ class LessonEditor extends Component {
       return {
         pages,
         itemPicker: null,
-        itemSearch: ''
+        itemSearch: '',
+        activeItemId: newItem.id,
+        focusItemId: newItem.id
       }
     })
   }
@@ -716,25 +827,40 @@ class LessonEditor extends Component {
     })
   }
 
-  handleItemFileChange = (itemId, file) => {
+  handleQuizOptionChange = (itemId, value) => {
+    this.handleItemTextChange(itemId, value, 'draftOption')
+  }
+
+  handleQuizOptionEdit = (itemId, index, value) => {
     this.setState(prevState => {
       const pages = this.clonePages(prevState.pages)
       const location = this.findItemLocation(pages, itemId)
       if (!location) return null
       const items = this.getContainerItemsByLocation(pages, location)
       const item = items[location.index]
-      if (item.previewUrl) {
-        URL.revokeObjectURL(item.previewUrl)
+      if (!item.options || !item.options[index]) return null
+      const oldText = item.options[index]
+      item.options[index] = value
+      if (item.correctAnswer === oldText) {
+        item.correctAnswer = value
       }
-      item.previewUrl = file ? URL.createObjectURL(file) : null
-      item.file = file || null
-      item.fileName = file ? file.name : ''
+      this.debouncedSave()
       return { pages }
     })
   }
 
-  handleQuizOptionChange = (itemId, value) => {
-    this.handleItemTextChange(itemId, value, 'draftOption')
+  handleQuizSetCorrectAnswer = (itemId, optionIndex) => {
+    this.setState(prevState => {
+      const pages = this.clonePages(prevState.pages)
+      const location = this.findItemLocation(pages, itemId)
+      if (!location) return null
+      const items = this.getContainerItemsByLocation(pages, location)
+      const item = items[location.index]
+      if (!item.options || item.options[optionIndex] === undefined) return null
+      item.correctAnswer = item.options[optionIndex]
+      this.debouncedSave()
+      return { pages }
+    })
   }
 
   handleAddQuizOption = (itemId) => {
@@ -744,11 +870,17 @@ class LessonEditor extends Component {
       if (!location) return null
       const items = this.getContainerItemsByLocation(pages, location)
       const item = items[location.index]
-      if (!item.draftOption.trim()) return null
-      item.options.push(item.draftOption.trim())
-      item.draftOption = ''
+      if (!item.options) item.options = []
+      item.options.push('')
+      this.debouncedSave()
       return { pages }
     })
+  }
+
+  handleQuizSelectOption = (itemId, optionText) => {
+    this.setState(prevState => ({
+      quizSelections: { ...prevState.quizSelections, [itemId]: optionText }
+    }))
   }
 
   handleCancelQuizOption = (itemId) => {
@@ -803,8 +935,108 @@ class LessonEditor extends Component {
     })
   }
 
-  handleMediaFileChange = (itemId, file) => {
-    this.handleItemFileChange(itemId, file)
+  // Sanitize URL: block javascript: and other dangerous protocols
+  sanitizeMediaUrl = (url) => {
+    if (!url || typeof url !== 'string') return ''
+    const trimmed = url.trim().toLowerCase()
+    if (trimmed.startsWith('javascript:') || trimmed.startsWith('data:') && trimmed.includes('javascript')) return ''
+    if (trimmed.startsWith('vbscript:') || trimmed.startsWith('file:')) return ''
+    return url.trim()
+  }
+
+  // Detect media type from URL (extension or data URL MIME)
+  getMediaTypeFromUrl = (url) => {
+    if (!url || typeof url !== 'string') return null
+    const s = url.trim()
+    if (s.startsWith('data:')) {
+      const mimeMatch = s.match(/^data:([^;,]+)/)
+      const mime = (mimeMatch ? mimeMatch[1] : '').toLowerCase()
+      if (mime.startsWith('image/')) return 'image'
+      if (mime.startsWith('video/')) return 'video'
+      if (mime.startsWith('audio/')) return 'audio'
+      return null
+    }
+    const path = s.split('?')[0]
+    const ext = (path.split('.').pop() || '').toLowerCase()
+    if (MEDIA_IMAGE_EXT.includes(ext)) return 'image'
+    if (MEDIA_VIDEO_EXT.includes(ext)) return 'video'
+    if (MEDIA_AUDIO_EXT.includes(ext)) return 'audio'
+    return null
+  }
+
+  // Detect media type from File (MIME)
+  getMediaTypeFromFile = (file) => {
+    if (!file || !file.type) return null
+    const mime = (file.type || '').toLowerCase()
+    if (MEDIA_IMAGE_MIME.some(m => mime.startsWith(m.split('/')[0]) || mime === m)) return 'image'
+    if (MEDIA_VIDEO_MIME.some(m => mime.startsWith('video/'))) return 'video'
+    if (MEDIA_AUDIO_MIME.some(m => mime.startsWith('audio/'))) return 'audio'
+    const ext = (file.name || '').split('.').pop().toLowerCase()
+    if (MEDIA_IMAGE_EXT.includes(ext)) return 'image'
+    if (MEDIA_VIDEO_EXT.includes(ext)) return 'video'
+    if (MEDIA_AUDIO_EXT.includes(ext)) return 'audio'
+    return null
+  }
+
+  handleMediaAttachmentUrl = (itemId, url) => {
+    const sanitized = this.sanitizeMediaUrl(url)
+    this.handleItemMediaAttachmentChange(itemId, { url: sanitized, file: null })
+  }
+
+  handleMediaAttachmentFile = (itemId, file) => {
+    if (!file) return
+    if (file.size > MAX_MEDIA_UPLOAD_BYTES) {
+      return // Optional: show message "File too large"
+    }
+    const type = this.getMediaTypeFromFile(file)
+    if (!type) return // Unsupported format
+    const reader = new FileReader()
+    reader.onload = () => {
+      this.handleItemMediaAttachmentChange(itemId, { url: reader.result, file: null })
+    }
+    reader.readAsDataURL(file)
+  }
+
+  handleItemMediaAttachmentChange = (itemId, payload) => {
+    this.setState(prevState => {
+      const pages = this.clonePages(prevState.pages)
+      const location = this.findItemLocation(pages, itemId)
+      if (!location) return null
+      const items = this.getContainerItemsByLocation(pages, location)
+      const item = items[location.index]
+      if (item.type !== 'MediaAttachment' || !item.text) return null
+      item.text = { file: null, url: payload.url ?? item.text.url }
+      this.debouncedSave()
+      return { pages }
+    })
+  }
+
+  // Render <img>, <video controls>, or <audio controls> by media type
+  renderMediaElement = (url, mediaType) => {
+    if (mediaType === 'image') {
+      return <img src={url} alt="" className="le-media-img" />
+    }
+    if (mediaType === 'video') {
+      return <video src={url} controls className="le-media-video" />
+    }
+    if (mediaType === 'audio') {
+      return <audio src={url} controls className="le-media-audio" />
+    }
+    return null
+  }
+
+  handleListTypeChange = (itemId, listType) => {
+    this.setState(prevState => {
+      const pages = this.clonePages(prevState.pages)
+      const location = this.findItemLocation(pages, itemId)
+      if (!location) return null
+      const items = this.getContainerItemsByLocation(pages, location)
+      const item = items[location.index]
+      if (item.type !== 'List') return null
+      item.listType = listType
+      this.debouncedSave()
+      return { pages }
+    })
   }
 
   handleListItemChange = (itemId, index, value) => {
@@ -936,6 +1168,7 @@ class LessonEditor extends Component {
         return { pages, dragOverItemId: null, isDragging: false }
       } catch (error) {
         console.error('Error in handleDropOnItem:', error)
+        toast.error('Failed to move item')
         return { isDragging: false }
       }
     })
@@ -982,6 +1215,7 @@ class LessonEditor extends Component {
         return { pages, dragOverItemId: null, isDragging: false }
       } catch (error) {
         console.error('Error in handleDropOnAddItem:', error)
+        toast.error('Failed to move item')
         return { isDragging: false }
       }
     })
@@ -1037,6 +1271,7 @@ class LessonEditor extends Component {
         return { pages, dragOverItemId: null, isDragging: false }
       } catch (error) {
         console.error('Error in handleDropOnColumnButton:', error)
+        toast.error('Failed to move item')
         return { isDragging: false }
       }
     })
@@ -1081,6 +1316,7 @@ class LessonEditor extends Component {
         return { pages, dragOverItemId: null, isDragging: false }
       } catch (error) {
         console.error('Error in handleDropOnPage:', error)
+        toast.error('Failed to move item')
         return { isDragging: false }
       }
     })
@@ -1093,7 +1329,7 @@ class LessonEditor extends Component {
     const items = this.getContainerItemsByLocation(pages, location)
     const item = items[location.index]
 
-    const content = item.content || item.question || item.link || ''
+    const content = item.content || item.question || ''
     this.setState({
       aiChatOpen: true,
       aiContext: {
@@ -1127,11 +1363,8 @@ class LessonEditor extends Component {
 
   renderColorPicker = (item, field) => {
     // For null values, use a default color for the picker display
-    // backgroundColor defaults to theme base, others default to #000000
-    const themeName = document.documentElement.getAttribute('data-theme') || 'dark'
-    const defaultValue = field === 'backgroundColor'
-      ? (themeName === 'light' ? '#F7F7F7' : '#151515')
-      : '#000000'
+    // backgroundColor defaults to #151515, others default to #000000
+    const defaultValue = field === 'backgroundColor' ? '#151515' : '#000000'
     const value = item.style?.[field] !== null && item.style?.[field] !== '' 
       ? item.style[field] 
       : defaultValue
@@ -1147,8 +1380,13 @@ class LessonEditor extends Component {
             const newValue = e.target.value
             // If setting to default and field allows null, set to null
             // Otherwise, set the actual value
-            // Allow null for textColor, backgroundColor, and borderColor
-            this.handleItemStyleChange(item.id, field, newValue === defaultValue ? null : newValue)
+            if (field === 'textColor' || field === 'borderColor') {
+              // Allow null for textColor and borderColor
+              this.handleItemStyleChange(item.id, field, newValue === defaultValue ? null : newValue)
+            } else {
+              // backgroundColor always has a value (defaults to #151515)
+              this.handleItemStyleChange(item.id, field, newValue)
+            }
           }}
           onClick={(e) => e.stopPropagation()}
         />
@@ -1156,7 +1394,49 @@ class LessonEditor extends Component {
     )
   }
 
-  renderItemToolbar = (item) => (
+  renderMediaAttachmentToolbar = (item) => (
+    <div className="le-item-toolbar le-media-toolbar" onClick={(e) => e.stopPropagation()}>
+      <div className="le-media-toolbar-row">
+        <label className="le-toolbar-file-label">
+          <input
+            type="file"
+            accept="image/*,video/*,audio/*,.jpg,.jpeg,.png,.webp,.gif,.svg,.bmp,.avif,.mp4,.webm,.ogg,.mov,.m4v,.mp3,.wav,.aac,.m4a"
+            className="le-toolbar-file-input"
+            onChange={(e) => {
+              const file = e.target.files && e.target.files[0]
+              if (file) this.handleMediaAttachmentFile(item.id, file)
+              e.target.value = ''
+            }}
+          />
+          <span className="le-toolbar-file-btn" title="Upload file">
+            <IconAttachment size={18} />
+          </span>
+        </label>
+        <input
+          type="text"
+          className="glass-input le-media-link-input"
+          placeholder="Link of the media"
+          value={item.text?.url || ''}
+          onChange={(e) => this.handleMediaAttachmentUrl(item.id, e.target.value)}
+        />
+      </div>
+      <button
+        className="glass-button le-toolbar-btn"
+        onClick={(e) => {
+          e.stopPropagation()
+          this.setState({ activeItemId: null })
+        }}
+      >
+        Done
+      </button>
+    </div>
+  )
+
+  renderItemToolbar = (item) => {
+    if (item.type === 'MediaAttachment') {
+      return this.renderMediaAttachmentToolbar(item)
+    }
+    return (
     <div className="le-item-toolbar" onClick={(e) => e.stopPropagation()}>
       <div className="le-toolbar-group">
         <label className="le-toolbar-label">Size</label>
@@ -1190,9 +1470,9 @@ class LessonEditor extends Component {
           e.stopPropagation()
           this.handleSendToAI(item.id)
         }}
+        title="Send to AI"
       >
-        <Star size={14} />
-        <span>AI</span>
+        <IconAiChat size={10} />
       </button>
       <button
         className="glass-button le-toolbar-btn"
@@ -1235,7 +1515,8 @@ class LessonEditor extends Component {
         Done
       </button>
     </div>
-  )
+    )
+  }
 
   handleItemResize = (itemId, startY, startHeight) => {
     const handleMouseMove = (e) => {
@@ -1332,29 +1613,26 @@ class LessonEditor extends Component {
     return (
       <div
         key={item.id}
-        className={`le-text-item ${className} ${editMode ? 'resizable' : ''}`}
+        className={`le-text-item ${className} ${editMode ? 'editable resizable' : ''}`}
         style={style}
+        contentEditable={editMode}
+        suppressContentEditableWarning
+        data-placeholder={placeholder}
+        ref={textItemRef}
+        onInput={(e) => {
+          const newContent = e.currentTarget.innerText
+          // Update state immediately but don't let React control the content
+          if (newContent !== item.content) {
+            this.handleItemTextChange(item.id, newContent)
+          }
+        }}
+        onBlur={(e) => {
+          const newContent = e.currentTarget.innerText
+          if (newContent !== item.content) {
+            this.handleItemTextChange(item.id, newContent)
+          }
+        }}
       >
-        <div
-          className={`le-text-content ${editMode ? 'editable' : ''}`}
-          contentEditable={editMode}
-          suppressContentEditableWarning
-          data-placeholder={placeholder}
-          ref={textItemRef}
-          onInput={(e) => {
-            const newContent = e.currentTarget.innerText
-            // Update state immediately but don't let React control the content
-            if (newContent !== item.content) {
-              this.handleItemTextChange(item.id, newContent)
-            }
-          }}
-          onBlur={(e) => {
-            const newContent = e.currentTarget.innerText
-            if (newContent !== item.content) {
-              this.handleItemTextChange(item.id, newContent)
-            }
-          }}
-        />
         {editMode && (
           <button
             className="le-text-resize-handle"
@@ -1366,7 +1644,7 @@ class LessonEditor extends Component {
               this.handleItemResize(item.id, e.clientY, currentHeight)
             }}
           >
-            <MoveVertical size={14} />
+            <IconResize size={14} />
           </button>
         )}
       </div>
@@ -1389,31 +1667,63 @@ class LessonEditor extends Component {
       return style
     }
 
-    if (item.type === 'Empty Space') {
-      const style = {}
-      if (item.height) style.height = `${item.height}px`
-      if (item.style?.backgroundColor !== null && item.style?.backgroundColor !== '') {
-        style.backgroundColor = item.style.backgroundColor
+    if (item.type === 'MediaAttachment') {
+      const url = item.text?.url || ''
+      const mediaType = url ? this.getMediaTypeFromUrl(url) : null
+      if (editMode) {
+        return (
+          <div className="le-media-attachment-editor">
+            <div className="le-media-toolbar-row">
+              <label className="le-toolbar-file-label">
+                <input
+                  type="file"
+                  accept="image/*,video/*,audio/*,.jpg,.jpeg,.png,.webp,.gif,.svg,.bmp,.avif,.mp4,.webm,.ogg,.mov,.m4v,.mp3,.wav,.aac,.m4a"
+                  className="le-toolbar-file-input"
+                  onChange={(e) => {
+                    const file = e.target.files && e.target.files[0]
+                    if (file) this.handleMediaAttachmentFile(item.id, file)
+                    e.target.value = ''
+                  }}
+                />
+                <span className="le-toolbar-file-btn" title="Upload file">
+                  <IconAttachment size={18} />
+                </span>
+              </label>
+              <input
+                type="text"
+                className="glass-input le-media-link-input"
+                placeholder="Link of the media"
+                value={url}
+                onChange={(e) => this.handleMediaAttachmentUrl(item.id, e.target.value)}
+              />
+            </div>
+            {url && mediaType && (
+              <div className="le-media-preview">
+                {this.renderMediaElement(url, mediaType)}
+              </div>
+            )}
+            {url && !mediaType && (
+              <div className="le-media-unsupported">
+                File isn&apos;t supported. <a href={url} target="_blank" rel="noopener noreferrer" className="le-media-download">Download Attachment</a>
+              </div>
+            )}
+          </div>
+        )
       }
-      if (item.style?.borderColor !== null && item.style?.borderColor !== '') {
-        style.borderColor = item.style.borderColor
+      // View mode: render media or fallback
+      if (!url) {
+        return <div className="le-media-placeholder">No media</div>
       }
-      
+      if (mediaType) {
+        return (
+          <div className="le-media-view">
+            {this.renderMediaElement(url, mediaType)}
+          </div>
+        )
+      }
       return (
-        <div className="le-empty-space" style={style}>
-          {editMode && (
-            <button
-              className="le-text-resize-handle"
-              onMouseDown={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                const currentHeight = item.height || 50
-                this.handleItemResize(item.id, e.clientY, currentHeight)
-              }}
-            >
-              <MoveVertical size={14} />
-            </button>
-          )}
+        <div className="le-media-unsupported">
+          File isn&apos;t supported. <a href={url} target="_blank" rel="noopener noreferrer" className="le-media-download">Download Attachment</a>
         </div>
       )
     }
@@ -1438,46 +1748,61 @@ class LessonEditor extends Component {
       return this.renderTextItem(item, editMode, classMap[item.type], item.type)
     }
 
-    if (item.type === 'List' || item.type === 'OrderedList') {
+    if (item.type === 'List') {
       const contentStyle = getContentStyle()
       const containerStyle = {}
       if (item.height) containerStyle.minHeight = `${item.height}px`
-      
+      const listType = item.listType || 'disc'
+
       const listContent = editMode ? (
         <div className="le-list-editor">
-          <div className="le-resizable-input-wrapper">
-            <input
-              type="text"
-              className={`le-list-description le-resizable-input ${item.type === 'OrderedList' ? 'le-resize-disabled' : ''}`}
-              placeholder="List description (optional)"
-              value={item.description || ''}
-              onChange={(e) => this.handleItemTextChange(item.id, e.target.value, 'description')}
-              style={{
-                ...contentStyle,
-                height: item.inputHeights?.description ? `${item.inputHeights.description}px` : 'auto',
-                minHeight: item.inputHeights?.description ? `${item.inputHeights.description}px` : 'auto'
-              }}
-            />
-            <button
-              className="le-input-resize-handle"
-              onMouseDown={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                const inputEl = e.currentTarget.previousElementSibling
-                const currentHeight = item.inputHeights?.description || inputEl.offsetHeight
-                this.handleInputResize(item.id, 'description', e.clientY, currentHeight, inputEl)
-              }}
+          {/* Row 1: Type dropdown (Disc, 123, ABC) + List description */}
+          <div className="le-list-row-first">
+            <select
+              className="glass-input le-list-type-dropdown"
+              value={listType}
+              onChange={(e) => this.handleListTypeChange(item.id, e.target.value)}
+              style={contentStyle}
             >
-              <MoveVertical size={12} />
-            </button>
+              <option value="disc"> • Disc</option>
+              <option value="123">123</option>
+              <option value="ABC">ABC</option>
+            </select>
+            <div className="le-resizable-input-wrapper le-list-description-wrap">
+              <input
+                type="text"
+                className="glass-input le-list-description le-resizable-input"
+                placeholder="List description"
+                value={item.description || ''}
+                onChange={(e) => this.handleItemTextChange(item.id, e.target.value, 'description')}
+                style={{
+                  ...contentStyle,
+                  height: item.inputHeights?.description ? `${item.inputHeights.description}px` : 'auto',
+                  minHeight: item.inputHeights?.description ? `${item.inputHeights.description}px` : 'auto'
+                }}
+              />
+              <button
+                className="le-input-resize-handle"
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  const inputEl = e.currentTarget.previousElementSibling
+                  const currentHeight = item.inputHeights?.description || inputEl.offsetHeight
+                  this.handleInputResize(item.id, 'description', e.clientY, currentHeight, inputEl)
+                }}
+              >
+                <IconResize size={12} />
+              </button>
+            </div>
           </div>
+          {/* Row 2+: Item rows */}
           <div className="le-list-items">
             {(item.items || ['']).map((listItem, index) => (
               <div key={`${item.id}-item-${index}`} className="le-list-item-row">
                 <div className="le-resizable-input-wrapper">
                   <input
                     type="text"
-                    className={`le-list-item-input le-resizable-input ${item.type === 'OrderedList' ? 'le-resize-disabled' : ''}`}
+                    className="glass-input le-list-item-input le-resizable-input"
                     placeholder={`Item ${index + 1}`}
                     value={listItem}
                     onChange={(e) => this.handleListItemChange(item.id, index, e.target.value)}
@@ -1509,34 +1834,44 @@ class LessonEditor extends Component {
                       this.handleInputResize(item.id, `item-${index}`, e.clientY, currentHeight, inputEl)
                     }}
                   >
-                    <MoveVertical size={12} />
+                    <IconResize size={12} />
                   </button>
                 </div>
               </div>
             ))}
           </div>
+          {/* Row: + Add item */}
           <button
             className="le-list-add-btn"
             onClick={() => this.handleAddListItem(item.id)}
           >
-            + Add Item
+            + Add item
           </button>
         </div>
       ) : (
         (() => {
-          const ListTag = item.type === 'OrderedList' ? 'ol' : 'ul'
-          const listItems = (item.items || []).filter(item => item.trim())
+          const listItems = (item.items || []).filter(i => i.trim())
+          const isOrdered = listType === '123' || listType === 'ABC'
+          const listStyleType = listType === '123' ? 'decimal' : listType === 'ABC' ? 'lower-alpha' : 'disc'
           return (
             <div className="le-list-view" style={contentStyle}>
               {item.description && (
                 <div className="le-list-description-view" style={contentStyle}>{item.description}</div>
               )}
               {listItems.length > 0 && (
-                <ListTag className="le-list" style={contentStyle}>
-                  {listItems.map((listItem, index) => (
-                    <li key={`${item.id}-line-${index}`} style={contentStyle}>{listItem}</li>
-                  ))}
-                </ListTag>
+                isOrdered ? (
+                  <ol className="le-list le-list-ordered" style={{ ...contentStyle, listStyleType }}>
+                    {listItems.map((listItem, index) => (
+                      <li key={`${item.id}-line-${index}`} style={contentStyle}>{listItem}</li>
+                    ))}
+                  </ol>
+                ) : (
+                  <ul className="le-list" style={{ ...contentStyle, listStyleType: 'disc' }}>
+                    {listItems.map((listItem, index) => (
+                      <li key={`${item.id}-line-${index}`} style={contentStyle}>{listItem}</li>
+                    ))}
+                  </ul>
+                )
               )}
             </div>
           )
@@ -1544,22 +1879,8 @@ class LessonEditor extends Component {
       )
 
       return (
-        <div className={`le-list-container ${editMode ? 'resizable' : ''}`} style={containerStyle}>
+        <div className="le-list-container" style={containerStyle}>
           {listContent}
-          {editMode && (
-            <button
-              className="le-text-resize-handle"
-              onMouseDown={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                const element = e.currentTarget.parentElement
-                const currentHeight = item.height || element.offsetHeight
-                this.handleItemResize(item.id, e.clientY, currentHeight)
-              }}
-            >
-              <MoveVertical size={14} />
-            </button>
-          )}
         </div>
       )
     }
@@ -1568,28 +1889,66 @@ class LessonEditor extends Component {
       const contentStyle = getContentStyle()
       const { rows, cols, cells } = item.table
       return (
-        <div className="le-table" style={contentStyle}>
+        <div className="le-table-wrapper">
+          {/* First row: Table description */}
+          {editMode ? (
+            <div className="le-table-row-first">
+              <input
+                type="text"
+                className="glass-input le-table-description"
+                placeholder="Table description"
+                value={item.description || ''}
+                onChange={(e) => this.handleItemTextChange(item.id, e.target.value, 'description')}
+                style={contentStyle}
+              />
+            </div>
+          ) : (
+            item.description && (
+              <div className="le-table-description-view" style={contentStyle}>{item.description}</div>
+            )
+          )}
+          {/* Second row: + Column and + Row buttons */}
           {editMode && (
             <div className="le-table-actions">
-              <button className="glass-button small" onClick={() => this.handleTableAddRow(item.id)}>+ Row</button>
-              <button className="glass-button small" onClick={() => this.handleTableAddColumn(item.id)}>+ Column</button>
+              <button type="button" className="glass-button small" onClick={() => this.handleTableAddColumn(item.id)}>+ Column</button>
+              <button type="button" className="glass-button small" onClick={() => this.handleTableAddRow(item.id)}>+ Row</button>
             </div>
           )}
-          <table style={contentStyle}>
+          <table className="le-table" style={contentStyle}>
+            <thead>
+              <tr>
+                {Array.from({ length: cols }).map((_, c) => (
+                  <th key={`${item.id}-head-${c}`} className="le-table-head-cell" style={contentStyle}>
+                    {editMode ? (
+                      <textarea
+                        className="glass-input le-table-cell"
+                        value={cells[0][c]}
+                        onChange={(e) => this.handleTableCellChange(item.id, 0, c, e.target.value)}
+                        rows={2}
+                        style={contentStyle}
+                      />
+                    ) : (
+                      <span className="le-table-cell-view" style={contentStyle}>{cells[0][c]}</span>
+                    )}
+                  </th>
+                ))}
+              </tr>
+            </thead>
             <tbody>
-              {Array.from({ length: rows }).map((_, r) => (
-                <tr key={`${item.id}-row-${r}`} style={contentStyle}>
+              {rows > 1 && Array.from({ length: rows - 1 }).map((_, r) => (
+                <tr key={`${item.id}-row-${r + 1}`} style={contentStyle}>
                   {Array.from({ length: cols }).map((__, c) => (
-                    <td key={`${item.id}-cell-${r}-${c}`} style={contentStyle}>
+                    <td key={`${item.id}-cell-${r + 1}-${c}`} style={contentStyle}>
                       {editMode ? (
-                        <input
+                        <textarea
                           className="glass-input le-table-cell"
-                          value={cells[r][c]}
-                          onChange={(e) => this.handleTableCellChange(item.id, r, c, e.target.value)}
+                          value={cells[r + 1][c]}
+                          onChange={(e) => this.handleTableCellChange(item.id, r + 1, c, e.target.value)}
+                          rows={2}
                           style={contentStyle}
                         />
                       ) : (
-                        <span style={contentStyle}>{cells[r][c]}</span>
+                        <span className="le-table-cell-view" style={contentStyle}>{cells[r + 1][c]}</span>
                       )}
                     </td>
                   ))}
@@ -1636,7 +1995,7 @@ class LessonEditor extends Component {
                     this.handleInputResize(item.id, 'question', e.clientY, currentHeight, inputEl)
                   }}
                 >
-                  <MoveVertical size={12} />
+                  <IconResize size={12} />
                 </button>
               </div>
             ) : (
@@ -1672,7 +2031,7 @@ class LessonEditor extends Component {
                       this.handleInputResize(item.id, 'answer', e.clientY, currentHeight, inputEl)
                     }}
                   >
-                    <MoveVertical size={12} />
+                    <IconResize size={12} />
                   </button>
                 </div>
               ) : (
@@ -1713,56 +2072,28 @@ class LessonEditor extends Component {
       const contentStyle = getContentStyle()
       const containerStyle = {}
       if (item.height) containerStyle.minHeight = `${item.height}px`
-      
+      const options = item.options || []
+      const correctAnswer = item.correctAnswer ?? ''
+      const selectedAnswer = this.state.quizSelections[item.id]
+      const hasAnswered = selectedAnswer !== undefined && selectedAnswer !== null
+
       return (
-        <div className={`le-quiz-container ${editMode ? 'resizable' : ''}`} style={containerStyle}>
+        <div className="le-quiz-container" style={containerStyle}>
           <div className="le-quiz">
+            {/* Row 1: Question (like list description, no type) */}
             {editMode ? (
-              <div className="le-resizable-input-wrapper">
-                <input
-                  className="glass-input le-quiz-question le-resizable-input"
-                  placeholder="Quiz question..."
-                  value={item.question}
-                  onChange={(e) => this.handleItemTextChange(item.id, e.target.value, 'question')}
-                  style={{
-                    ...contentStyle,
-                    height: item.inputHeights?.question ? `${item.inputHeights.question}px` : 'auto',
-                    minHeight: item.inputHeights?.question ? `${item.inputHeights.question}px` : 'auto'
-                  }}
-                />
-                <button
-                  className="le-input-resize-handle"
-                  onMouseDown={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    const inputEl = e.currentTarget.previousElementSibling
-                    const currentHeight = item.inputHeights?.question || inputEl.offsetHeight
-                    this.handleInputResize(item.id, 'question', e.clientY, currentHeight, inputEl)
-                  }}
-                >
-                  <MoveVertical size={12} />
-                </button>
-              </div>
-            ) : (
-              <div className="le-quiz-question-text" style={contentStyle}>{item.question || 'Quiz question'}</div>
-            )}
-            <div className="le-quiz-options">
-              {item.options.map((option, index) => (
-                <div key={`${item.id}-opt-${index}`} className="le-quiz-option" style={contentStyle}>{option}</div>
-              ))}
-            </div>
-            {editMode && (
-              <div className="le-quiz-add">
-                <div className="le-resizable-input-wrapper">
+              <div className="le-quiz-row-first">
+                <div className="le-resizable-input-wrapper le-quiz-question-wrap">
                   <input
-                    className="glass-input le-quiz-option-input le-resizable-input"
-                    placeholder="Add option"
-                    value={item.draftOption}
-                    onChange={(e) => this.handleQuizOptionChange(item.id, e.target.value)}
+                    type="text"
+                    className="glass-input le-quiz-question le-resizable-input"
+                    placeholder="Quiz question..."
+                    value={item.question || ''}
+                    onChange={(e) => this.handleItemTextChange(item.id, e.target.value, 'question')}
                     style={{
                       ...contentStyle,
-                      height: item.inputHeights?.['draftOption'] ? `${item.inputHeights['draftOption']}px` : 'auto',
-                      minHeight: item.inputHeights?.['draftOption'] ? `${item.inputHeights['draftOption']}px` : 'auto'
+                      height: item.inputHeights?.question ? `${item.inputHeights.question}px` : 'auto',
+                      minHeight: item.inputHeights?.question ? `${item.inputHeights.question}px` : 'auto'
                     }}
                   />
                   <button
@@ -1771,77 +2102,99 @@ class LessonEditor extends Component {
                       e.preventDefault()
                       e.stopPropagation()
                       const inputEl = e.currentTarget.previousElementSibling
-                      const currentHeight = item.inputHeights?.['draftOption'] || inputEl.offsetHeight
-                      this.handleInputResize(item.id, 'draftOption', e.clientY, currentHeight, inputEl)
+                      const currentHeight = item.inputHeights?.question || inputEl.offsetHeight
+                      this.handleInputResize(item.id, 'question', e.clientY, currentHeight, inputEl)
                     }}
                   >
-                    <MoveVertical size={12} />
+                    <IconResize size={12} />
                   </button>
                 </div>
-                <button className="le-icon-btn" onClick={() => this.handleCancelQuizOption(item.id)}>
-                  <X size={14} />
-                </button>
-                <button className="le-icon-btn confirm" onClick={() => this.handleAddQuizOption(item.id)}>
-                  <Check size={14} />
-                </button>
               </div>
+            ) : (
+              <div className="le-quiz-question-text" style={contentStyle}>{item.question || 'Quiz question'}</div>
+            )}
+            {/* Option rows: radio (correct) + input (editable) in edit; clickable in view */}
+            {editMode && (
+              <p className="le-quiz-hint">Select the correct answer</p>
+            )}
+            <div className="le-quiz-options">
+              {editMode ? (
+                options.map((option, index) => (
+                  <div key={`${item.id}-opt-${index}`} className="le-quiz-option-row">
+                    <label className="le-quiz-correct-check" title="Mark as correct answer">
+                      <input
+                        type="radio"
+                        name={`quiz-correct-${item.id}`}
+                        checked={correctAnswer === option}
+                        onChange={() => this.handleQuizSetCorrectAnswer(item.id, index)}
+                      />
+                    </label>
+                    <div className="le-resizable-input-wrapper">
+                      <input
+                        type="text"
+                        className="glass-input le-quiz-option-input le-resizable-input"
+                        placeholder={`Option ${index + 1}`}
+                        value={option}
+                        onChange={(e) => this.handleQuizOptionEdit(item.id, index, e.target.value)}
+                        style={{
+                          ...contentStyle,
+                          height: item.inputHeights?.[`opt-${index}`] ? `${item.inputHeights[`opt-${index}`]}px` : 'auto',
+                          minHeight: item.inputHeights?.[`opt-${index}`] ? `${item.inputHeights[`opt-${index}`]}px` : 'auto'
+                        }}
+                      />
+                      <button
+                        className="le-input-resize-handle"
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          const inputEl = e.currentTarget.previousElementSibling
+                          const currentHeight = item.inputHeights?.[`opt-${index}`] || inputEl.offsetHeight
+                          this.handleInputResize(item.id, `opt-${index}`, e.clientY, currentHeight, inputEl)
+                        }}
+                      >
+                        <IconResize size={12} />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                options.map((option, index) => {
+                  const isCorrect = option === correctAnswer
+                  const isSelected = selectedAnswer === option
+                  const showCorrect = hasAnswered && isCorrect
+                  const showWrong = hasAnswered && isSelected && !isCorrect
+                  const optionClass = [
+                    'le-quiz-option',
+                    showCorrect ? 'le-quiz-option-correct' : '',
+                    showWrong ? 'le-quiz-option-wrong' : ''
+                  ].filter(Boolean).join(' ')
+                  const optionLetter = String.fromCharCode(65 + index)
+                  return (
+                    <div
+                      key={`${item.id}-opt-${index}`}
+                      className={optionClass}
+                      style={contentStyle}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => this.handleQuizSelectOption(item.id, option)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') this.handleQuizSelectOption(item.id, option) }}
+                    >
+                      <span className="le-quiz-option-letter">{optionLetter}.</span>
+                      <span className="le-quiz-option-text">{option || `Option ${index + 1}`}</span>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+            {editMode && (
+              <button
+                className="le-quiz-add-btn"
+                onClick={() => this.handleAddQuizOption(item.id)}
+              >
+                + Add option
+              </button>
             )}
           </div>
-        </div>
-      )
-    }
-
-    if (['Image', 'Audio', 'Video', 'Embed / Attachment'].includes(item.type)) {
-      return (
-        <div className="le-media">
-          {editMode && (
-            <div className="le-media-inputs">
-              <input
-                type="file"
-                className="glass-input"
-                onChange={(e) => this.handleMediaFileChange(item.id, e.target.files[0])}
-              />
-              <input
-                type="text"
-                className="glass-input"
-                placeholder="Paste media link"
-                value={item.link}
-                onChange={(e) => this.handleItemTextChange(item.id, e.target.value, 'link')}
-              />
-            </div>
-          )}
-          {(() => {
-            const rawSrc = item.previewUrl || item.link || item.fileName || ''
-            const baseUrl = apiClient?.defaults?.baseURL || ''
-            const baseOrigin = baseUrl.replace(/\/api\/?$/, '')
-            let resolvedSrc = rawSrc
-            if (rawSrc && !rawSrc.startsWith('http') && !rawSrc.startsWith('blob:') && !rawSrc.startsWith('data:')) {
-              if (rawSrc.startsWith('/')) {
-                resolvedSrc = baseOrigin ? `${baseOrigin}${rawSrc}` : rawSrc
-              } else {
-                resolvedSrc = baseOrigin ? `${baseOrigin}/${rawSrc}` : `/${rawSrc}`
-              }
-            }
-            return (
-              <div className="le-media-preview">
-                {item.type === 'Image' && resolvedSrc && (
-                  <img src={resolvedSrc} alt={item.fileName || 'Lesson media'} className="le-media-image" />
-                )}
-                {item.type === 'Video' && resolvedSrc && (
-                  <video src={resolvedSrc} className="le-media-video" controls />
-                )}
-                {item.type === 'Audio' && resolvedSrc && (
-                  <audio src={resolvedSrc} controls />
-                )}
-                {item.type === 'Embed / Attachment' && resolvedSrc && (
-                  <a href={resolvedSrc} target="_blank" rel="noreferrer">Open attachment</a>
-                )}
-                {!resolvedSrc && (
-                  <div>{`${item.type} placeholder`}</div>
-                )}
-              </div>
-            )
-          })()}
         </div>
       )
     }
@@ -1853,29 +2206,29 @@ class LessonEditor extends Component {
     const { editMode } = this.props
     const isActive = this.state.activeItemId === item.id
     const isDragOver = this.state.dragOverItemId === item.id
-    const isEmptySpace = item.type === 'Empty Space'
-
-    // Get item styles from toolbar
+    // Get item styles from toolbar (MediaAttachment has style: null)
     const itemStyle = {}
-    if (item.style?.fontSize) {
-      // Handle both "16px" format and number format
-      itemStyle.fontSize = typeof item.style.fontSize === 'string' && item.style.fontSize.includes('px') 
-        ? item.style.fontSize 
-        : `${item.style.fontSize}px`
-    }
-    if (item.style?.textColor !== null && item.style?.textColor !== '') {
-      itemStyle.color = item.style.textColor
-    }
-    if (item.style?.backgroundColor !== null && item.style?.backgroundColor !== '') {
-      itemStyle.backgroundColor = item.style.backgroundColor
-    }
-    if (item.style?.borderColor !== null && item.style?.borderColor !== '') {
-      itemStyle.border = `1px solid ${item.style.borderColor}`
+    if (item.style) {
+      if (item.style.fontSize) {
+        itemStyle.fontSize = typeof item.style.fontSize === 'string' && item.style.fontSize.includes('px')
+          ? item.style.fontSize
+          : `${item.style.fontSize}px`
+      }
+      if (item.style.textColor != null && item.style.textColor !== '') {
+        itemStyle.color = item.style.textColor
+      }
+      if (item.style.backgroundColor != null && item.style.backgroundColor !== '') {
+        itemStyle.backgroundColor = item.style.backgroundColor
+      }
+      if (item.style.borderColor != null && item.style.borderColor !== '') {
+        itemStyle.border = `1px solid ${item.style.borderColor}`
+      }
     }
 
+    const itemKey = `${item.id}-${editMode}`
     return (
       <div
-        key={item.id}
+        key={itemKey}
         className={`le-item ${editMode ? 'edit-mode' : 'view-mode'} ${isActive ? 'active' : ''} ${isDragOver ? 'drag-over' : ''} ${item.style?.borderColor ? 'has-border-color' : ''}`}
         style={itemStyle}
         data-le-item={item.id}
@@ -1894,37 +2247,44 @@ class LessonEditor extends Component {
             onDragStart={(e) => this.handleDragStart(e, item.id)}
             onDragEnd={this.handleDragEnd}
           >
-            <GripVertical size={14} />
+            <IconGrip size={14} />
           </button>
         )}
 
-        {isActive && editMode && !isEmptySpace && this.renderItemToolbar(item)}
+        {isActive && editMode && item.type !== 'MediaAttachment' && this.renderItemToolbar(item)}
 
         {editMode && (
           <div className="le-item-plus-wrapper">
-            <button
-              className="le-item-plus"
-              onClick={(e) => {
-                e.stopPropagation()
-                // Find the item's actual index in the container
-                const pages = this.state.pages
-                const containerItems = this.getContainerItemsByContext(pages, context)
-                const itemIndex = containerItems ? containerItems.findIndex(i => i.id === item.id) : index
-                // Open picker and add item at this item's index (before this item)
-                // Store the item ID so we know which item's plus button was clicked
-                this.setState({
-                  itemPicker: { ...context, index: itemIndex, sourceItemId: item.id },
-                  itemSearch: ''
-                })
-              }}
-            >
-              <Plus size={14} />
-            </button>
-            {this.state.itemPicker && 
-             this.state.itemPicker.sourceItemId === item.id && (
-              <div className="le-item-picker-wrapper">
-                {this.renderItemPicker()}
-              </div>
+            {this.state.itemPicker && this.state.itemPicker.sourceItemId === item.id ? (
+              <>
+                <div className="le-add-item-input-wrap at-item">
+                  {this.renderAddItemInput(
+                    true,
+                    () => {
+                      const pages = this.state.pages
+                      const containerItems = this.getContainerItemsByContext(pages, context)
+                      const itemIndex = containerItems ? containerItems.findIndex(i => i.id === item.id) : index
+                      this.handleOpenItemPicker(context, itemIndex, item.id)
+                    }
+                  )}
+                </div>
+                <div className="le-item-picker-wrapper">
+                  {this.renderItemPicker(true)}
+                </div>
+              </>
+            ) : (
+              <button
+                className="le-item-plus"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  const pages = this.state.pages
+                  const containerItems = this.getContainerItemsByContext(pages, context)
+                  const itemIndex = containerItems ? containerItems.findIndex(i => i.id === item.id) : index
+                  this.handleOpenItemPicker(context, itemIndex, item.id)
+                }}
+              >
+                <IconPlus size={14} />
+              </button>
             )}
           </div>
         )}
@@ -1932,7 +2292,7 @@ class LessonEditor extends Component {
         {editMode && (
           <div className="le-item-controls">
             <button className="le-item-delete" onClick={() => this.handleRequestDeleteItem(item.id)}>
-              <Trash2 size={14} />
+              <IconTrash size={14} />
             </button>
           </div>
         )}
@@ -1970,67 +2330,83 @@ class LessonEditor extends Component {
           className={`le-item-row ${isMultiItemRow ? 'multi-item' : ''}`}
         >
           {rowItems.map(({ item, originalIndex }) => (
-            <div key={item.id} className="le-item-cell">
+            <div key={`${item.id}-${this.props.editMode}`} className="le-item-cell">
               {this.renderItem(item, originalIndex, context)}
             </div>
           ))}
           {this.props.editMode && (
-            <button
-              className={`le-item-column-btn ${this.state.isDragging ? 'drop-active' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation()
-                const { itemPicker } = this.state
-                const isPickerOpen = itemPicker && itemPicker.rowId === rowId && itemPicker.index === -1
-                if (isPickerOpen) {
-                  this.setState({ itemPicker: null })
-                } else {
+            isPickerOpenForRow ? (
+              <div className="le-item-column-add-wrap">
+                <div className="le-add-item-input-wrap at-column">
+                  {this.renderAddItemInput(
+                    true,
+                    () => this.handleAddColumnItem(rowItems[rowItems.length - 1].item.id, rowId)
+                  )}
+                </div>
+                <div className="le-item-picker-row-wrapper">
+                  {this.renderItemPicker(true)}
+                </div>
+              </div>
+            ) : (
+              <button
+                className={`le-item-column-btn ${this.state.isDragging ? 'drop-active' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation()
                   this.handleAddColumnItem(rowItems[rowItems.length - 1].item.id, rowId)
-                }
-              }}
-              onDragOver={this.handleDragOverColumnButton}
-              onDrop={(e) => this.handleDropOnColumnButton(e, rowId)}
-              type="button"
-            >
-              <Plus size={14} />
-              <span>{this.state.isDragging ? 'Drop in row' : 'Column'}</span>
-            </button>
-          )}
-          {isPickerOpenForRow && (
-            <div className="le-item-picker-row-wrapper">
-              {this.renderItemPicker()}
-            </div>
+                }}
+                onDragOver={this.handleDragOverColumnButton}
+                onDrop={(e) => this.handleDropOnColumnButton(e, rowId)}
+                type="button"
+              >
+                <IconPlus size={14} />
+                <span>{this.state.isDragging ? 'Drop in row' : 'Column'}</span>
+              </button>
+            )
           )}
         </div>
       )
     })
   }
 
+  handleAddItemInputKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      const first = this.getFilteredItems()[0]
+      if (first) this.handleAddItem(first)
+    }
+  }
+
+  renderAddItemInput = (isActive, onFocus, placeholder = 'Add Item') => (
+    <input
+      ref={isActive ? (el) => { this.addItemInputRef = el } : undefined}
+      type="text"
+      className="glass-input le-add-item-input"
+      placeholder={placeholder}
+      value={isActive ? this.state.itemSearch : ''}
+      onChange={(e) => this.setState({ itemSearch: e.target.value })}
+      onFocus={onFocus}
+      onKeyDown={this.handleAddItemInputKeyDown}
+      onClick={(e) => e.stopPropagation()}
+    />
+  )
+
   renderAddItemButton = (context, index, compact = false) => {
     const { itemPicker } = this.state
-    const isPickerOpen = itemPicker && 
-      itemPicker.pageId === context.pageId && 
-      itemPicker.index === index
-    
+    const isPickerOpen = itemPicker &&
+      itemPicker.pageId === context.pageId &&
+      itemPicker.index === index &&
+      !itemPicker.sourceItemId
+
     return !this.props.editMode ? null : (
       <div className="le-add-item-wrapper">
-        <button
-          className={`le-add-item-button ${compact ? 'compact' : ''} ${isPickerOpen ? 'active' : ''}`}
-          onClick={(e) => {
-            e.stopPropagation()
-            if (isPickerOpen) {
-              this.setState({ itemPicker: null })
-            } else {
-              this.handleOpenItemPicker(context, index)
-            }
-          }}
+        <div
+          className={`le-add-item-input-wrap ${compact ? 'compact' : ''} ${isPickerOpen ? 'active' : ''}`}
           onDragOver={(e) => this.props.editMode && e.preventDefault()}
           onDrop={(e) => this.handleDropOnAddItem(e, context, index)}
-          type="button"
         >
-          <Plus size={16} />
-          <span>Add Item</span>
-        </button>
-        {isPickerOpen && this.renderItemPicker()}
+          {this.renderAddItemInput(isPickerOpen, () => this.handleOpenItemPicker(context, index))}
+        </div>
+        {isPickerOpen && this.renderItemPicker(true)}
       </div>
     )
   }
@@ -2056,19 +2432,55 @@ class LessonEditor extends Component {
     )
   }
 
-  renderItemPicker = () => {
-    const { itemPicker, itemSearch } = this.state
+  renderItemPicker = (hideSearchInput = false) => {
+    const { itemPicker } = this.state
     if (!itemPicker) return null
 
-    const query = itemSearch.trim().toLowerCase()
-    const filteredCategories = ITEM_CATEGORIES.map(category => ({
-      ...category,
-      items: category.items
-        .filter(item => item.toLowerCase().includes(query))
-    })).filter(category => category.items.length > 0)
-
-    // If it's a row addition, center the picker
+    const filteredItems = this.getFilteredItems()
     const isRowAddition = itemPicker.index === -1 && itemPicker.rowId
+    const closeBtn = (
+      <button
+        type="button"
+        className="le-icon-btn le-item-picker-close-outside"
+        onClick={() => this.setState({ itemPicker: null, itemSearch: '' })}
+      >
+        <IconX size={16} />
+      </button>
+    )
+
+    const dropdownContent = (
+      <div className="le-item-picker-body le-item-picker-body-flat">
+        <div className="le-item-grid">
+          {filteredItems.map((item, idx) => {
+            const IconComponent = ITEM_ICONS[item] || IconFile
+            return (
+              <button
+                key={item}
+                type="button"
+                className={`le-item-card ${idx === 0 ? 'le-item-card-first' : ''}`}
+                onClick={() => this.handleAddItem(item)}
+              >
+                <span className="le-item-card-icon">
+                  <IconComponent size={18} />
+                </span>
+                <span className="le-item-card-label">{item}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    )
+
+    if (hideSearchInput) {
+      return (
+        <div className="le-item-picker-outer" onClick={(e) => e.stopPropagation()}>
+          {closeBtn}
+          <div className={`le-item-picker-dropdown ${isRowAddition ? 'centered' : ''}`}>
+            {dropdownContent}
+          </div>
+        </div>
+      )
+    }
 
     return (
       <div 
@@ -2080,32 +2492,15 @@ class LessonEditor extends Component {
             type="text"
             className="glass-input le-item-search"
             placeholder="Search item types..."
-            value={itemSearch}
+            value={this.state.itemSearch}
             onChange={(e) => this.setState({ itemSearch: e.target.value })}
             autoFocus
           />
-          <button className="le-icon-btn" onClick={() => this.setState({ itemPicker: null })}>
-            <X size={16} />
+          <button className="le-icon-btn" onClick={() => this.setState({ itemPicker: null, itemSearch: '' })}>
+            <IconX size={16} />
           </button>
         </div>
-        <div className="le-item-picker-body">
-          {filteredCategories.map(category => (
-            <div key={category.label} className="le-item-category">
-              <h4>{category.label}</h4>
-              <div className="le-item-grid">
-                {category.items.map(item => (
-                  <button
-                    key={item}
-                    className="le-item-card"
-                    onClick={() => this.handleAddItem(item)}
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+        {dropdownContent}
       </div>
     )
   }
@@ -2115,21 +2510,21 @@ class LessonEditor extends Component {
     if (!confirmModal) return null
 
     return (
-      <div className="cp-modal-overlay" onClick={() => this.setState({ confirmModal: null })}>
-        <div className="cp-modal" onClick={(e) => e.stopPropagation()}>
-          <div className="cp-modal-header">
-            <h2 className="cp-modal-title">{confirmModal.title}</h2>
-            <button className="cp-modal-close" onClick={() => this.setState({ confirmModal: null })}>
-              <X size={18} />
+      <div className={cpModalStyles.cpModalOverlay} onClick={() => this.setState({ confirmModal: null })}>
+        <div className={cpModalStyles.cpModal} onClick={(e) => e.stopPropagation()}>
+          <div className={cpModalStyles.cpModalHeader}>
+            <h2 className={cpModalStyles.cpModalTitle}>{confirmModal.title}</h2>
+            <button className={cpModalStyles.cpModalClose} onClick={() => this.setState({ confirmModal: null })}>
+              <IconX size={18} />
             </button>
           </div>
-          <div className="cp-modal-body">
-            <p className="cp-modal-message">{confirmModal.message}</p>
+          <div className={cpModalStyles.cpModalBody}>
+            <p className={cpModalStyles.cpModalMessage}>{confirmModal.message}</p>
           </div>
-          <div className="cp-modal-footer">
-            <button className="cp-modal-btn cancel" onClick={() => this.setState({ confirmModal: null })}>Cancel</button>
+          <div className={cpModalStyles.cpModalFooter}>
+            <button className={`${cpModalStyles.cpModalBtn} ${cpModalStyles.cpModalBtnCancel}`} onClick={() => this.setState({ confirmModal: null })}>Cancel</button>
             <button
-              className="cp-modal-btn delete"
+              className={`${cpModalStyles.cpModalBtn} ${cpModalStyles.cpModalBtnDelete}`}
               onClick={() => {
                 if (confirmModal.type === 'delete-page') this.handleDeletePage(confirmModal.pageId)
                 if (confirmModal.type === 'delete-item') this.handleDeleteItem(confirmModal.itemId)
@@ -2147,9 +2542,8 @@ class LessonEditor extends Component {
     const { aiChatOpen, aiContext } = this.state
     if (!aiChatOpen) {
       return (
-        <button className="le-ai-toggle" onClick={() => this.setState({ aiChatOpen: true })}>
-          <Star size={14} />
-          <span>AI</span>
+        <button className="le-ai-toggle" onClick={() => this.setState({ aiChatOpen: true })} title="AI Chat">
+          <IconAiChat size={16} />
         </button>
       )
     }
@@ -2159,7 +2553,7 @@ class LessonEditor extends Component {
         <div className="le-ai-header">
           <span>AI Chat</span>
           <button className="le-icon-btn" onClick={() => this.setState({ aiChatOpen: false })}>
-            <X size={14} />
+            <IconX size={14} />
           </button>
         </div>
         <div className="le-ai-messages">
@@ -2180,7 +2574,7 @@ class LessonEditor extends Component {
         <div className="le-ai-input-area">
           <input type="text" className="glass-input le-ai-input" placeholder="Type a message..." />
           <button className="le-ai-send-btn">
-            <ArrowRight size={18} />
+            <IconArrowRight size={18} />
           </button>
         </div>
       </div>
@@ -2188,11 +2582,24 @@ class LessonEditor extends Component {
   }
 
   render() {
-    const { pages } = this.state
+    const { pages, lessonLoading } = this.state
     const { editMode } = this.props
 
+    if (lessonLoading) {
+      return (
+        <div className="le-loading">
+          <div className="le-loading-spinner" aria-label="Loading" />
+          <div className="le-loading-text">Loading Lesson</div>
+        </div>
+      )
+    }
+
     return (
-      <div className="lesson-editor" onClick={() => this.setState({ openPageSettingsId: null, itemPicker: null })}>
+      <div
+        ref={this.lessonEditorRef}
+        className="lesson-editor"
+        onClick={() => this.setState({ openPageSettingsId: null, itemPicker: null })}
+      >
         {pages.map((page, pageIndex) => (
           <div key={page.id} className="lesson-page-wrapper">
             <div
@@ -2210,7 +2617,7 @@ class LessonEditor extends Component {
                     })
                   }}
                 >
-                  <Settings size={16} />
+                  <IconSettings size={16} />
                 </button>
               )}
               {this.renderPageSettings(page.id, pageIndex)}
@@ -2227,7 +2634,7 @@ class LessonEditor extends Component {
                 onClick={() => this.handleAddPageAt(pageIndex + 1)}
                 type="button"
               >
-                <Plus size={16} />
+                <IconPlus size={16} />
                 <span>Add New Page</span>
               </button>
             )}

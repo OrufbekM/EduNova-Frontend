@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { FileText, GripVertical, Pencil, Trash2, Check, X } from 'lucide-react'
+import { IconFile, IconGrip, IconEdit, IconTrash, IconCheck, IconX } from '../../icons.jsx'
+import styles from '../ClassPage.module.css'
 
 function LessonItem({ lesson, onEdit, onRequestDelete, onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop, dragOverId, depth = 0, onLessonDoubleClick, selectedLessonId }) {
   const [isEditing, setIsEditing] = useState(false)
@@ -26,7 +27,7 @@ function LessonItem({ lesson, onEdit, onRequestDelete, onDragStart, onDragEnd, o
   const isDragOver = dragOverId === lesson.id
   const isSelected = selectedLessonId === lesson.id
 
-  const handleClick = () => {
+  const handleDoubleClick = () => {
     if (onLessonDoubleClick) {
       onLessonDoubleClick(lesson.id)
     }
@@ -34,7 +35,7 @@ function LessonItem({ lesson, onEdit, onRequestDelete, onDragStart, onDragEnd, o
 
   return (
     <div
-      className={`lesson-item ${isDragOver ? 'drag-over' : ''} ${isSelected ? 'selected' : ''}`}
+      className={`${styles.lessonItem} ${isDragOver ? styles.dragOver : ''} ${isSelected ? styles.selected : ''}`}
       data-id={lesson.id}
       style={{ paddingLeft: `${12 + depth * 16}px`, cursor: 'pointer' }}
       onMouseEnter={() => setIsHovered(true)}
@@ -42,43 +43,43 @@ function LessonItem({ lesson, onEdit, onRequestDelete, onDragStart, onDragEnd, o
       onDragOver={(e) => onDragOver(e, lesson.id, 'lesson')}
       onDragLeave={onDragLeave}
       onDrop={(e) => onDrop(e, lesson.id, 'lesson')}
-      onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
     >
       <div
-        className="lesson-handle"
+        className={styles.lessonHandle}
         draggable={true}
         onDragStart={(e) => onDragStart(e, lesson.id, 'lesson')}
         onDragEnd={onDragEnd}
       >
-        <GripVertical size={12} />
+        <IconGrip size={12} />
       </div>
 
-      <div className="lesson-icon"><FileText size={14} /></div>
+      <div className={styles.lessonIcon}><IconFile size={14} /></div>
 
       {isEditing ? (
         <input
           type="text"
-          className="lesson-edit-input"
+          className={styles.lessonEditInput}
           value={editName}
           onChange={(e) => setEditName(e.target.value)}
           onKeyDown={handleKeyDown}
           autoFocus
         />
       ) : (
-        <span className="lesson-name">{lesson.name}</span>
+        <span className={styles.lessonName}>{lesson.name}</span>
       )}
 
       {isHovered && !isEditing && (
-        <div className="lesson-actions">
-          <button className="lesson-action-btn" onClick={() => setIsEditing(true)}><Pencil size={12} /></button>
-          <button className="lesson-action-btn delete" onClick={() => onRequestDelete(lesson.id, lesson.name, 'lesson')}><Trash2 size={12} /></button>
+        <div className={styles.lessonActions}>
+          <button className={styles.lessonActionBtn} onClick={() => setIsEditing(true)}><IconEdit size={12} /></button>
+          <button className={`${styles.lessonActionBtn} ${styles.delete}`} onClick={() => onRequestDelete(lesson.id, lesson.name, 'lesson')}><IconTrash size={12} /></button>
         </div>
       )}
 
       {isEditing && (
-        <div className="lesson-actions">
-          <button className="lesson-action-btn confirm" onClick={handleSave}><Check size={12} /></button>
-          <button className="lesson-action-btn cancel" onClick={handleCancel}><X size={12} /></button>
+        <div className={styles.lessonActions}>
+          <button className={`${styles.lessonActionBtn} ${styles.confirm}`} onClick={handleSave}><IconCheck size={12} /></button>
+          <button className={`${styles.lessonActionBtn} ${styles.cancel}`} onClick={handleCancel}><IconX size={12} /></button>
         </div>
       )}
     </div>

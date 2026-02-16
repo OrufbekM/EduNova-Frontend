@@ -1,20 +1,25 @@
 import React from 'react'
-import { Plus, UserRound } from 'lucide-react'
+import { IconPlus, IconLogout, IconUser, IconEdit } from '../../icons.jsx'
 import ThemeToggle from '../../assets/ThemeToggle'
 
 function Header({ showInput, inputValue, onInputChange, onInputKeyDown, onCancel, onAddClick, onLogout, profileOpen, onProfileToggle, onProfileClickOutside }) {
   return (
     <header className="cm-header">
       <div className="cm-header-left">
-        <div className="cm-logo"></div>
-        <span className="cm-title">EduNova / <span>Class Management</span></span>
+        <div className="cm-logo">
+          <img src="/logoLight.png" alt="EduNova" className="logo-light" />
+          <img src="/logoDark.png" alt="EduNova" className="logo-dark" />
+        </div>
+        <span className="cm-title">
+          <span className="cm-title-edu">Edu</span><span className="cm-title-nova">Nova</span><span className="cm-title-rest"> / Class Management</span>
+        </span>
       </div>
 
       <div className="cm-header-right">
         <ThemeToggle />
         <div className="cm-profile-wrapper">
           <button className="cm-profile-toggle" onClick={onProfileToggle} title="Profile">
-            <UserRound size={18} />
+            <IconUser size={18} />
           </button>
         </div>
         <div className={`cm-add-category-wrapper ${showInput ? 'active' : ''}`}>
@@ -33,7 +38,7 @@ function Header({ showInput, inputValue, onInputChange, onInputKeyDown, onCancel
             </>
           )}
           <button className="cm-add-category-btn" onClick={onAddClick}>
-            <Plus size={16} />
+            <IconPlus size={16} />
             <span>Add Category</span>
           </button>
         </div>

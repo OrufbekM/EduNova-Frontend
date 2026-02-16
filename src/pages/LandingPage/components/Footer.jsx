@@ -58,7 +58,7 @@ function Footer({ onShowAuth }) {
             <span>Limited Time</span>
           </div>
           <h2 className="cta-title">Free until March — <span className="highlight">take this chance</span></h2>
-          <p className="cta-subtitle">Teaching is hard. Tools shouldn't be.</p>
+
           <button className="btn btn-primary btn-cta" onClick={() => onShowAuth && onShowAuth('signup')}>
             <span>Sign Up Free</span>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

@@ -10,33 +10,58 @@ import LandingPage from './pages/LandingPage/LandingPage'
 
 const RequireAuth = ({ children }) => {
   if (!isAuthenticated()) {
-    return <Navigate to="/" replace />
+    return <Navigate to={{ pathname: '/', search: '?auth=login' }} replace />
   }
   return children
 }
 
-const LoginRoute = () => {
+const LandingRoute = () => {
   const location = useLocation()
+  const navigate = useNavigate()
   const params = new URLSearchParams(location.search)
-  const initialMode = params.get('mode') === 'signup' ? 'signup' : 'login'
+  const authParam = params.get('auth') === 'signup' ? 'signup' : (params.get('auth') === 'login' ? 'login' : null)
+  const showAuth = Boolean(authParam)
+  const authMode = authParam || 'login'
 
-  if (isAuthenticated()) {
-    return <Navigate to="/dashboard" replace />
+  useEffect(() => {
+    if (isAuthenticated()) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [navigate])
+
+  const handleShowAuth = (mode) => {
+    const nextMode = mode === 'signup' ? 'signup' : 'login'
+    navigate({ pathname: '/', search: `?auth=${nextMode}` }, { replace: true })
   }
 
-  return <Login initialMode={initialMode} />
+  const handleCloseAuth = () => {
+    navigate('/', { replace: true })
+  }
+
+  const handleLoginSuccess = () => {
+    navigate('/dashboard', { replace: true })
+  }
+
+  return (
+    <>
+      <LandingPage onShowAuth={handleShowAuth} />
+      {showAuth && (
+        <Login
+          initialMode={authMode}
+          inline={true}
+          onClose={handleCloseAuth}
+          onLoginSuccess={handleLoginSuccess}
+        />
+      )}
+    </>
+  )
 }
 
-const LandingRoute = () => {
-  const navigate = useNavigate()
-  return (
-    <LandingPage
-      onShowAuth={(mode) => {
-        const nextMode = mode === 'signup' ? 'signup' : 'login'
-        navigate(`/login?mode=${nextMode}`)
-      }}
-    />
-  )
+const LoginRedirectRoute = () => {
+  const location = useLocation()
+  const params = new URLSearchParams(location.search)
+  const mode = params.get('mode') === 'signup' ? 'signup' : 'login'
+  return <Navigate to={{ pathname: '/', search: `?auth=${mode}` }} replace />
 }
 
 const ClassPageRoute = () => {
@@ -69,12 +94,13 @@ const TitleManager = () => {
   const location = useLocation()
   const params = new URLSearchParams(location.search)
   const pathname = location.pathname
+  const authMode = params.get('auth') === 'signup' ? 'signup' : (params.get('auth') === 'login' ? 'login' : null)
   let title = 'EduNova'
 
   if (pathname === '/') {
-    title = 'EduNova'
+    title = authMode === 'signup' ? 'EduNova Sign Up' : (authMode === 'login' ? 'EduNova Login' : 'EduNova')
   } else if (pathname.startsWith('/login')) {
-    title = params.get('mode') === 'signup' ? 'EduNova Sign Up' : 'EduNova Login'
+    title = 'EduNova Login'
   } else if (pathname.startsWith('/dashboard') || pathname.startsWith('/management')) {
     title = 'EduNova Class Management'
   } else if (pathname.startsWith('/class/')) {
@@ -97,7 +123,7 @@ function App() {
     <Router>
       <TitleManager />
       <Routes>
-        <Route path="/login" element={<LoginRoute />} />
+        <Route path="/login" element={<LoginRedirectRoute />} />
         <Route path="/dashboard" element={<ClassManagementRoute />} />
         <Route path="/management" element={<ClassManagementRoute />} />
         <Route path="/class/:classId" element={<ClassPageRoute />} />

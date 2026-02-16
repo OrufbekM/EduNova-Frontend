@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { getToken, deleteToken } from './token';
 
-const baseURL = import.meta.env.VITE_API_BASE_URL || import.meta.env.API_BASE_URL || "https://eduboard-dste.onrender.com/api";
+const baseURL = import.meta.env.VITE_API_BASE_URL || import.meta.env.API_BASE_URL || "http://localhost:3000/api";
 
 const apiClient = axios.create({
   baseURL
@@ -26,9 +26,9 @@ apiClient.interceptors.response.use(
       // Token expired or invalid
       deleteToken();
       
-      // Redirect to login page
+      // Redirect to landing with auth modal
       if (typeof window !== 'undefined') {
-        window.location.href = '/login';
+        window.location.href = '/?auth=login';
       }
       
       return Promise.reject({ message: 'Token expired. Please login again.' });

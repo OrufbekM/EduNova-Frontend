@@ -45,7 +45,7 @@ const ClassDashboard = (props) => {
     // Check if user is authenticated
     if (!isAuthenticated()) {
       toast.error('Please login to access the dashboard')
-      navigate('/login')
+      navigate('/?auth=login')
       return
     }
     
@@ -73,7 +73,7 @@ const ClassDashboard = (props) => {
       }
       
       // Redirect to login
-      navigate('/login')
+      navigate('/?auth=login')
       return true
     }
     return false
@@ -537,6 +537,20 @@ const ClassDashboard = (props) => {
       toast.error('Failed to move class: ' + (err.message || 'Unknown error'))
       await fetchCategories()
     }
+  }
+
+  const isInitialLoading = (categoryLoading || classLoading) && (!Array.isArray(categories) || categories.length === 0)
+  const loadingLabel = categoryLoading ? 'Loading Categories' : 'Loading Lessons'
+
+  if (isInitialLoading) {
+    return (
+      <div className={styles.dashboard}>
+        <div className={styles.loadingState}>
+          <div className={styles.loadingSpinner} aria-label="Loading" />
+          <div className={styles.loadingText}>{loadingLabel}</div>
+        </div>
+      </div>
+    )
   }
 
   return (
