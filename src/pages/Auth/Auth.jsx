@@ -46,6 +46,12 @@ class Auth extends Component {
     }
   }
 
+  handleAuthError = (message) => {
+    const safeMessage = message || 'An error occurred. Please try again.'
+    toast.error(safeMessage)
+    this.setState({ error: safeMessage })
+  }
+
   handleLoginSubmit = async (e) => {
     e.preventDefault()
     this.setState({ error: '', loading: true })
@@ -61,13 +67,11 @@ class Auth extends Component {
         }
       } else {
         toast.remove(loadingToast)
-        toast.error(result.error || 'Login failed')
-        this.setState({ error: result.error || 'Login failed' })
+        this.handleAuthError(result.error || 'Login failed')
       }
     } catch (error) {
       toast.remove(loadingToast)
-      toast.error(error?.message || 'An error occurred. Please try again.')
-      this.setState({ error: 'An error occurred. Please try again.' })
+      this.handleAuthError(error?.message || 'An error occurred. Please try again.')
     } finally {
       this.setState({ loading: false })
     }
@@ -79,12 +83,12 @@ class Auth extends Component {
     
     // Validation
     if (this.state.signupPassword !== this.state.signupConfirmPassword) {
-      this.setState({ error: 'Passwords do not match' })
+      this.handleAuthError('Passwords do not match')
       return
     }
     
     if (this.state.signupPassword.length < 6) {
-      this.setState({ error: 'Password must be at least 6 characters' })
+      this.handleAuthError('Password must be at least 6 characters')
       return
     }
     
@@ -101,13 +105,11 @@ class Auth extends Component {
         }
       } else {
         toast.remove(loadingToast)
-        toast.error(result.error || 'Signup failed')
-        this.setState({ error: result.error || 'Signup failed' })
+        this.handleAuthError(result.error || 'Signup failed')
       }
     } catch (error) {
       toast.remove(loadingToast)
-      toast.error(error?.message || 'An error occurred. Please try again.')
-      this.setState({ error: 'An error occurred. Please try again.' })
+      this.handleAuthError(error?.message || 'An error occurred. Please try again.')
     } finally {
       this.setState({ loading: false })
     }

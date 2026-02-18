@@ -7,10 +7,8 @@ const normalizeArray = (payload) => {
 };
 
 export const getCategories = async () => {
-  const [categoriesResponse, classesResponse] = await Promise.all([
-    apiClient.get('/class-category'),
-    apiClient.get('/class')
-  ]);
+  const categoriesResponse = await apiClient.get('/class-category');
+  const classesResponse = await apiClient.get('/class');
 
   const categories = normalizeArray(categoriesResponse);
   const classes = normalizeArray(classesResponse);

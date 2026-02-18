@@ -121,21 +121,8 @@ const ClassDashboard = (props) => {
         return
       }
       
-      // If API fails for other reasons, set default data
-      setCategories([
-        {
-          id: 1,
-          name: 'Uncategorized',
-          classes: [
-            {
-              id: 1,
-              name: 'Demo class',
-              description: 'Description of the class'
-            }
-          ]
-        }
-      ])
-      toast.error('Failed to load data from server, using default data')
+      setCategories([])
+      toast.error('Failed to load data from server')
     }
   }
 

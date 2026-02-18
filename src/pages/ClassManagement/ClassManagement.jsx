@@ -18,10 +18,8 @@ import { logout, getCurrentUser, getProfile, updateUserProfile, resetPassword } 
 import { IconEdit, IconX, IconLogout, IconUser } from '../icons.jsx'
 import { toast } from '../../utils/toast'
 
-const DEMO_CATEGORY_ID = 'demo-category'
-const DEMO_CLASS_ID = 'demo-class'
-const DEMO_CATEGORY_NAME = 'Demo Category'
-const DEMO_CLASS_NAME = 'Demo Class'
+const PROTECTED_CATEGORY_NAME = 'Uncategorized'
+const PROTECTED_CLASS_NAME = 'Demo class'
 
 class ClassManagement extends Component {
   constructor(props) {
@@ -80,54 +78,12 @@ class ClassManagement extends Component {
 
   isDemoCategory = (category = {}) => {
     const name = String(category?.name || '').trim().toLowerCase()
-    return String(category?.id) === DEMO_CATEGORY_ID || name === DEMO_CATEGORY_NAME.toLowerCase()
+    return name === PROTECTED_CATEGORY_NAME.toLowerCase()
   }
 
   isDemoClass = (cls = {}) => {
     const name = String(cls?.name || '').trim().toLowerCase()
-    return String(cls?.id) === DEMO_CLASS_ID || name === DEMO_CLASS_NAME.toLowerCase()
-  }
-
-  ensureDemoData = (categories = []) => {
-    const safeCategories = Array.isArray(categories)
-      ? categories.map((cat) => ({ ...cat, classes: Array.isArray(cat.classes) ? [...cat.classes] : [] }))
-      : []
-
-    const demoCategoryIndex = safeCategories.findIndex((cat) => this.isDemoCategory(cat))
-
-    if (demoCategoryIndex === -1) {
-      return [
-        {
-          id: DEMO_CATEGORY_ID,
-          name: DEMO_CATEGORY_NAME,
-          classes: [
-            {
-              id: DEMO_CLASS_ID,
-              name: DEMO_CLASS_NAME,
-              description: 'This is a protected demo class.'
-            }
-          ]
-        },
-        ...safeCategories
-      ]
-    }
-
-    const demoCategory = safeCategories[demoCategoryIndex]
-    const hasDemoClass = (demoCategory.classes || []).some((cls) => this.isDemoClass(cls))
-
-    if (!hasDemoClass) {
-      demoCategory.classes = [
-        {
-          id: DEMO_CLASS_ID,
-          name: DEMO_CLASS_NAME,
-          description: 'This is a protected demo class.'
-        },
-        ...(demoCategory.classes || [])
-      ]
-      safeCategories[demoCategoryIndex] = demoCategory
-    }
-
-    return safeCategories
+    return name === PROTECTED_CLASS_NAME.toLowerCase()
   }
 
   loadProfile = async () => {
@@ -154,7 +110,7 @@ class ClassManagement extends Component {
     try {
       const result = await getCategories()
       if (result.success) {
-        this.setState({ categories: this.ensureDemoData(result.data) })
+        this.setState({ categories: result.data })
       }
     } catch (error) {
       console.error('Failed to fetch categories:', error)
@@ -359,7 +315,7 @@ class ClassManagement extends Component {
       const category = this.state.categories.find(cat => String(cat.id) === String(catId))
       const cls = category?.classes?.find(item => String(item.id) === String(clsId))
       const fallbackName = String(name || '').trim().toLowerCase()
-      if (this.isDemoClass(cls) || fallbackName === DEMO_CLASS_NAME.toLowerCase()) {
+      if (this.isDemoClass(cls) || fallbackName === PROTECTED_CLASS_NAME.toLowerCase()) {
         toast.error('This demo class cannot be deleted.')
         return
       }
@@ -529,10 +485,18 @@ class ClassManagement extends Component {
     }
   }
 
-  handleLogout = () => {
-    logout()
-    if (this.props.onNavigate) {
-      this.props.onNavigate('/')
+  handleLogout = async () => {
+    const loadingToast = toast.loading('Logging out...')
+    try {
+      await logout()
+      toast.remove(loadingToast)
+      if (this.props.onNavigate) {
+        this.props.onNavigate('/')
+      }
+    } catch (error) {
+      toast.remove(loadingToast)
+      toast.error('Failed to log out')
+      console.error('Logout failed:', error)
     }
   }
 
