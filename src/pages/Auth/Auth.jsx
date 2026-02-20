@@ -16,7 +16,6 @@ class Auth extends Component {
       signupUsername: '',
       signupPassword: '',
       signupConfirmPassword: '',
-      error: '',
       loading: false
     }
   }
@@ -46,15 +45,22 @@ class Auth extends Component {
     }
   }
 
-  handleAuthError = (message) => {
-    const safeMessage = message || 'An error occurred. Please try again.'
+  resolveErrorMessage = (error, fallback = 'An error occurred. Please try again.') => {
+    if (typeof error === 'string' && error.trim()) return error
+    if (error?.message && typeof error.message === 'string' && error.message.trim()) return error.message
+    if (typeof error?.error === 'string' && error.error.trim()) return error.error
+    if (typeof error?.detail === 'string' && error.detail.trim()) return error.detail
+    return fallback
+  }
+
+  handleAuthError = (error, fallback) => {
+    const safeMessage = this.resolveErrorMessage(error, fallback)
     toast.error(safeMessage)
-    this.setState({ error: safeMessage })
   }
 
   handleLoginSubmit = async (e) => {
     e.preventDefault()
-    this.setState({ error: '', loading: true })
+    this.setState({ loading: true })
     const loadingToast = toast.loading('Logging in...')
     
     try {
@@ -67,11 +73,11 @@ class Auth extends Component {
         }
       } else {
         toast.remove(loadingToast)
-        this.handleAuthError(result.error || 'Login failed')
+        this.handleAuthError(result.error, 'Login failed')
       }
     } catch (error) {
       toast.remove(loadingToast)
-      this.handleAuthError(error?.message || 'An error occurred. Please try again.')
+      this.handleAuthError(error)
     } finally {
       this.setState({ loading: false })
     }
@@ -79,7 +85,6 @@ class Auth extends Component {
 
   handleSignupSubmit = async (e) => {
     e.preventDefault()
-    this.setState({ error: '' })
     
     // Validation
     if (this.state.signupPassword !== this.state.signupConfirmPassword) {
@@ -105,11 +110,11 @@ class Auth extends Component {
         }
       } else {
         toast.remove(loadingToast)
-        this.handleAuthError(result.error || 'Signup failed')
+        this.handleAuthError(result.error, 'Signup failed')
       }
     } catch (error) {
       toast.remove(loadingToast)
-      this.handleAuthError(error?.message || 'An error occurred. Please try again.')
+      this.handleAuthError(error)
     } finally {
       this.setState({ loading: false })
     }
@@ -117,7 +122,7 @@ class Auth extends Component {
 
   render() {
     const { inline, onClose } = this.props
-    const { activeTab, error, loading } = this.state
+    const { activeTab, loading } = this.state
 
     return (
       <div className={`auth-page ${inline ? 'auth-inline' : ''}`}>
@@ -154,13 +159,13 @@ class Auth extends Component {
             <div className="auth-switcher">
               <button 
                 className={`auth-switcher-btn ${activeTab === 'login' ? 'active' : ''}`}
-                onClick={() => this.setState({ activeTab: 'login', error: '' })}
+                onClick={() => this.setState({ activeTab: 'login' })}
               >
                 Login
               </button>
               <button 
                 className={`auth-switcher-btn ${activeTab === 'signup' ? 'active' : ''}`}
-                onClick={() => this.setState({ activeTab: 'signup', error: '' })}
+                onClick={() => this.setState({ activeTab: 'signup' })}
               >
                 Sign Up
               </button>
@@ -178,7 +183,6 @@ class Auth extends Component {
                 {/* Login Form */}
                 <div className="auth-form-wrapper">
                   <h1 className="auth-title">Welcome Back</h1>
-                  {error && <div className="auth-error">{error}</div>}
                   <form className="auth-form" onSubmit={this.handleLoginSubmit}>
                     <div className="auth-input-group">
                       <div className="auth-input-icon"><IconMail /></div>
@@ -217,7 +221,6 @@ class Auth extends Component {
                 {/* Sign Up Form */}
                 <div className="auth-form-wrapper">
                   <h1 className="auth-title">Create an account</h1>
-                  {error && <div className="auth-error">{error}</div>}
                   <form className="auth-form" onSubmit={this.handleSignupSubmit}>
                     <div className="auth-input-group">
                       <div className="auth-input-icon"><IconMail /></div>

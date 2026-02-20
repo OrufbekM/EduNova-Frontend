@@ -1,6 +1,6 @@
 import React, { Component } from 'react'
 import { IconPlus, IconSettings, IconTrash, IconGrip, IconCheck, IconX, IconStar, IconArrowRight, IconResize, IconAttachment, IconFile, IconListDisc, IconTable, IconType, IconAiChat } from '../../icons.jsx'
-import { getLessonContent, updateLessonContent, updateItemStyle } from '../../../api/lessons'
+import { getLessonContent, updateLessonContent, updateItemStyle, generateLessonContent } from '../../../api/lessons'
 import { toast } from '../../../utils/toast'
 import './LessonEditor.css'
 import cpModalStyles from '../ClassPage.module.css'
@@ -78,7 +78,10 @@ class LessonEditor extends Component {
       aiChatOpen: false,
       aiContext: null,
       isDragging: false,
-      quizSelections: {} // itemId -> selected option text (view mode)
+      quizSelections: {}, // itemId -> selected option text (view mode)
+      aiPrompt: '',
+      aiLoading: false,
+      aiError: null
     }
     this.dragItem = null
     this.textInputTimeout = null
@@ -210,6 +213,9 @@ class LessonEditor extends Component {
       dragOverItemId: null,
       aiChatOpen: false,
       aiContext: null,
+      aiPrompt: '',
+      aiLoading: false,
+      aiError: null
     })
   }
 
@@ -373,6 +379,16 @@ class LessonEditor extends Component {
           cells: apiItem.text.rows.map(row => [...row])
         }
         internalItem.content = JSON.stringify(apiItem.text)
+      } else if (apiItem.type === 'Dictionary' && apiItem.words && typeof apiItem.words === 'object') {
+        const rows = Object.entries(apiItem.words).map(([word, meaning]) => [word, meaning])
+        internalItem.type = 'Table'
+        internalItem.description = apiItem.text?.description ?? apiItem['table description'] ?? ''
+        internalItem.table = {
+          rows: Math.max(rows.length, 1),
+          cols: 2,
+          cells: rows.length ? rows : [['', '']]
+        }
+        internalItem.content = JSON.stringify({ columns: ['Word', 'Meaning'], rows })
       } else if (apiItem.type === 'Question') {
         internalItem.question = apiItem.question || ''
         internalItem.answer = apiItem.answer || ''
@@ -1339,6 +1355,35 @@ class LessonEditor extends Component {
         content
       }
     })
+  }
+
+  buildAiPrompt = () => {
+    const { aiPrompt, aiContext } = this.state
+    const basePrompt = aiPrompt.trim()
+    if (!aiContext) return basePrompt
+    const contextLines = [
+      'Context:',
+      `Type: ${aiContext.type}`,
+      `Content: ${aiContext.content || ''}`
+    ]
+    return `${basePrompt}\n\n${contextLines.join('\n')}`.trim()
+  }
+
+  handleGenerateLesson = async () => {
+    if (!this.props.lessonId || !this.props.classId) return
+    const prompt = this.buildAiPrompt()
+    if (!prompt) return
+
+    this.setState({ aiLoading: true, aiError: null })
+    try {
+      const result = await generateLessonContent(this.props.lessonId, prompt)
+      const payload = result?.data?.data || result?.data || {}
+      const content = payload.content || []
+      const pages = this.convertApiToInternal(content)
+      this.setState({ pages, aiLoading: false })
+    } catch (error) {
+      this.setState({ aiLoading: false, aiError: this.getErrorMessage(error, 'AI request failed.') })
+    }
   }
 
   getItemStyle = (item) => {
@@ -2539,7 +2584,7 @@ class LessonEditor extends Component {
   }
 
   renderAiChat = () => {
-    const { aiChatOpen, aiContext } = this.state
+    const { aiChatOpen, aiContext, aiPrompt, aiLoading, aiError } = this.state
     if (!aiChatOpen) {
       return (
         <button className="le-ai-toggle" onClick={() => this.setState({ aiChatOpen: true })} title="AI Chat">
@@ -2570,10 +2615,31 @@ class LessonEditor extends Component {
           ) : (
             <div className="le-ai-hint">Select an item and click AI to send context.</div>
           )}
+          {aiError && (
+            <div className="le-ai-hint">{aiError}</div>
+          )}
         </div>
         <div className="le-ai-input-area">
-          <input type="text" className="glass-input le-ai-input" placeholder="Type a message..." />
-          <button className="le-ai-send-btn">
+          <input
+            type="text"
+            className="glass-input le-ai-input"
+            placeholder="Describe the full lesson you want..."
+            value={aiPrompt}
+            onChange={(e) => this.setState({ aiPrompt: e.target.value })}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                this.handleGenerateLesson()
+              }
+            }}
+            disabled={aiLoading}
+          />
+          <button
+            className="le-ai-send-btn"
+            onClick={this.handleGenerateLesson}
+            disabled={aiLoading || !aiPrompt.trim()}
+            type="button"
+          >
             <IconArrowRight size={18} />
           </button>
         </div>

@@ -597,11 +597,11 @@ class ClassManagement extends Component {
   handleResetPasswordSave = async () => {
     // Validate passwords
     if (this.state.resetPasswordData.newPassword !== this.state.resetPasswordData.confirmPassword) {
-      alert('New password and confirm password do not match')
+      toast.error('New password and confirm password do not match')
       return
     }
     if (this.state.resetPasswordData.newPassword.length < 6) {
-      alert('Password must be at least 6 characters')
+      toast.error('Password must be at least 6 characters')
       return
     }
     

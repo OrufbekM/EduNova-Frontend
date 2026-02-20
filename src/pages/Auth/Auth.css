@@ -366,17 +366,6 @@
   cursor: not-allowed;
 }
 
-.auth-error {
-  padding: 12px;
-  margin-bottom: 16px;
-  background: color-mix(in srgb, var(--color-red) 15%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-red) 30%, transparent);
-  border-radius: 8px;
-  color: var(--color-red);
-  font-size: 0.875rem;
-  text-align: center;
-}
-
 .auth-demo-info {
   margin-top: 16px;
   padding: 8px;
