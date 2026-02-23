@@ -395,11 +395,11 @@
 
 .auth-close-btn {
   position: absolute;
-  top: 16px;
-  right: 16px;
+  top: 4px;
+  right: 3px;
   z-index: 10002;
   padding: 8px;
-  background: color-mix(in srgb, var(--color-white) 5%, transparent);
+  background-color: transparent;
   border: none;
   border-radius: 6px;
   color: var(--color-lightgray);
@@ -410,10 +410,6 @@
   justify-content: center;
 }
 
-.auth-close-btn:hover {
-  background: color-mix(in srgb, var(--color-white) 10%, transparent);
-  color: var(--color-white);
-}
 
 /* ===========================
    RESPONSIVE
@@ -439,5 +435,10 @@
 
   .auth-submit-btn {
     padding: 14px 20px;
+  }
+
+  .auth-close-btn {
+    top: 8px;
+    right: 8px;
   }
 }

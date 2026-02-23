@@ -43,6 +43,7 @@ class ClassManagement extends Component {
         phoneNumber: currentUser.phoneNumber || ''
       },
       resetPasswordModal: false,
+      resetPasswordSaving: false,
       resetPasswordData: {
         currentPassword: '',
         newPassword: '',
@@ -575,6 +576,7 @@ class ClassManagement extends Component {
   handleResetPasswordClick = () => {
     this.setState({ 
       resetPasswordModal: true,
+      resetPasswordSaving: false,
       resetPasswordData: {
         currentPassword: '',
         newPassword: '',
@@ -584,8 +586,10 @@ class ClassManagement extends Component {
   }
 
   handleResetPasswordCancel = () => {
+    if (this.state.resetPasswordSaving) return
     this.setState({ 
       resetPasswordModal: false,
+      resetPasswordSaving: false,
       resetPasswordData: {
         currentPassword: '',
         newPassword: '',
@@ -595,6 +599,7 @@ class ClassManagement extends Component {
   }
 
   handleResetPasswordSave = async () => {
+    if (this.state.resetPasswordSaving) return
     // Validate passwords
     if (this.state.resetPasswordData.newPassword !== this.state.resetPasswordData.confirmPassword) {
       toast.error('New password and confirm password do not match')
@@ -605,19 +610,34 @@ class ClassManagement extends Component {
       return
     }
     
+    const loadingToast = toast.loading('Resetting password...')
+    this.setState({ resetPasswordSaving: true })
     try {
       const result = await resetPassword(
         this.state.resetPasswordData.currentPassword,
         this.state.resetPasswordData.newPassword
       )
       if (result.success) {
+        this.setState({
+          resetPasswordModal: false,
+          resetPasswordSaving: false,
+          resetPasswordData: {
+            currentPassword: '',
+            newPassword: '',
+            confirmPassword: ''
+          }
+        })
+        toast.remove(loadingToast)
         toast.success('Password reset successfully')
-        this.handleResetPasswordCancel()
       } else {
+        this.setState({ resetPasswordSaving: false })
+        toast.remove(loadingToast)
         toast.error(result.error || 'Failed to reset password')
       }
     } catch (error) {
       console.error('Failed to reset password:', error)
+      this.setState({ resetPasswordSaving: false })
+      toast.remove(loadingToast)
       toast.error('Failed to reset password')
     }
   }
@@ -809,6 +829,7 @@ class ClassManagement extends Component {
                     value={this.state.resetPasswordData.currentPassword}
                     onChange={(e) => this.handleResetPasswordFieldChange('currentPassword', e.target.value)}
                     placeholder="Enter current password"
+                    disabled={this.state.resetPasswordSaving}
                   />
                 </div>
                 <div className="modal-field">
@@ -818,6 +839,7 @@ class ClassManagement extends Component {
                     value={this.state.resetPasswordData.newPassword}
                     onChange={(e) => this.handleResetPasswordFieldChange('newPassword', e.target.value)}
                     placeholder="Enter new password"
+                    disabled={this.state.resetPasswordSaving}
                   />
                 </div>
                 <div className="modal-field">
@@ -827,12 +849,15 @@ class ClassManagement extends Component {
                     value={this.state.resetPasswordData.confirmPassword}
                     onChange={(e) => this.handleResetPasswordFieldChange('confirmPassword', e.target.value)}
                     placeholder="Confirm new password"
+                    disabled={this.state.resetPasswordSaving}
                   />
                 </div>
               </div>
               <div className="modal-footer">
-                <button className="modal-btn cancel" onClick={this.handleResetPasswordCancel}>Cancel</button>
-                <button className="modal-btn done" onClick={this.handleResetPasswordSave}>Done</button>
+                <button className="modal-btn cancel" onClick={this.handleResetPasswordCancel} disabled={this.state.resetPasswordSaving}>Cancel</button>
+                <button className="modal-btn done" onClick={this.handleResetPasswordSave} disabled={this.state.resetPasswordSaving}>
+                  {this.state.resetPasswordSaving ? 'Saving...' : 'Done'}
+                </button>
               </div>
             </div>
           </div>

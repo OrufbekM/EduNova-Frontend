@@ -897,6 +897,13 @@
   transition: all 0.2s ease;
 }
 
+.modal-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
 .modal-btn.cancel { color: var(--color-lightgray); background: color-mix(in srgb, var(--color-white) 5%, transparent); }
 .modal-btn.cancel:hover { background: color-mix(in srgb, var(--color-white) 8%, transparent); color: var(--color-white); }
 

@@ -1370,6 +1370,7 @@ class LessonEditor extends Component {
   }
 
   handleGenerateLesson = async () => {
+    if (this.state.aiLoading) return
     if (!this.props.lessonId || !this.props.classId) return
     const prompt = this.buildAiPrompt()
     if (!prompt) return
@@ -2625,9 +2626,12 @@ class LessonEditor extends Component {
             className="glass-input le-ai-input"
             placeholder="Describe the full lesson you want..."
             value={aiPrompt}
-            onChange={(e) => this.setState({ aiPrompt: e.target.value })}
+            onChange={(e) => {
+              if (aiLoading) return
+              this.setState({ aiPrompt: e.target.value })
+            }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') {
+              if (e.key === 'Enter' && !aiLoading) {
                 e.preventDefault()
                 this.handleGenerateLesson()
               }
@@ -2639,8 +2643,9 @@ class LessonEditor extends Component {
             onClick={this.handleGenerateLesson}
             disabled={aiLoading || !aiPrompt.trim()}
             type="button"
+            aria-label={aiLoading ? 'Generating...' : 'Send to AI'}
           >
-            <IconArrowRight size={18} />
+            {aiLoading ? <span className="le-ai-send-spinner" aria-hidden="true" /> : <IconArrowRight size={18} />}
           </button>
         </div>
       </div>

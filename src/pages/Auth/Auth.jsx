@@ -120,12 +120,22 @@ class Auth extends Component {
     }
   }
 
+  handleBackdropClick = (e) => {
+    const { inline, onClose } = this.props
+    if (inline && onClose && e.target === e.currentTarget) {
+      onClose()
+    }
+  }
+
   render() {
     const { inline, onClose } = this.props
     const { activeTab, loading } = this.state
 
     return (
-      <div className={`auth-page ${inline ? 'auth-inline' : ''}`}>
+      <div
+        className={`auth-page ${inline ? 'auth-inline' : ''}`}
+        onClick={this.handleBackdropClick}
+      >
         {!inline && (
           <div className="auth-bg">
             <div className="auth-bg-circle auth-bg-circle-1"></div>
@@ -212,9 +222,6 @@ class Auth extends Component {
                       <span>{loading ? 'Logging in...' : 'Log In'}</span>
                       {!loading && <IconArrowRight />}
                     </button>
-                    <div className="auth-demo-info">
-                      <small>Demo: teacher@edunova.com / password123</small>
-                    </div>
                   </form>
                 </div>
 

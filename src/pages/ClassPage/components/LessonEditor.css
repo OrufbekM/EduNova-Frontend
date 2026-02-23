@@ -46,12 +46,14 @@
   left: 0;
   width: 100%;
   height: 100vh;
+  box-sizing: border-box;
   padding: 0;
   margin: 0;
   display: flex;
   flex-direction: column;
   gap: 0;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .lesson-page-wrapper {
@@ -1558,6 +1560,21 @@
 
 .le-ai-send-btn:active {
   transform: scale(0.95);
+}
+
+.le-ai-send-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.le-ai-send-spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--color-neon) 30%, transparent);
+  border-top-color: var(--color-neon);
+  animation: leSpin 0.8s linear infinite;
 }
 
 /* ===========================
