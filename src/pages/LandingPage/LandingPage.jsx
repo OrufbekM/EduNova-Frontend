@@ -13,7 +13,7 @@ class LandingPage extends Component {
         <Navbar onShowAuth={this.props.onShowAuth} />
         <main>
           <Hero onShowAuth={this.props.onShowAuth} />
-          <WhyEduNova />
+          <WhyEduNova onShowAuth={this.props.onShowAuth} />
           <HowItWorks />
           <Footer onShowAuth={this.props.onShowAuth} />
         </main>

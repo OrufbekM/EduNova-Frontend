@@ -53,7 +53,7 @@ function FeatureCard({ feature, index, isVisible }) {
   )
 }
 
-function WhyEduNova() {
+function WhyEduNova({ onShowAuth }) {
   const sectionRef = useRef(null)
   const [isVisible, setIsVisible] = useState(false)
 
@@ -85,7 +85,7 @@ function WhyEduNova() {
         <div className={`callout-cta ${isVisible ? 'visible' : ''}`}>
           <div className="callout-content">
             <p className="callout-text">Get started free — no credit card needed</p>
-            <button className="btn btn-outline">
+            <button className="btn btn-outline" onClick={() => onShowAuth && onShowAuth('signup')}>
               Start Teaching
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M5 12h14M12 5l7 7-7 7" />
